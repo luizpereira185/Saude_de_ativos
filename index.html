@@ -141,6 +141,9 @@
   body.tv.ocioso, body.tv.ocioso *{cursor:none!important}
   #btnSairTV{display:none;position:fixed;right:14px;bottom:14px;z-index:60;background:var(--navy);opacity:.85}
   body.tv:not(.ocioso) #btnSairTV{display:block}
+  #assinatura{position:fixed;left:14px;bottom:8px;z-index:55;font-size:11px;color:#6b7c8f;background:rgba(243,246,249,.85);padding:3px 10px;border-radius:12px;pointer-events:none;letter-spacing:.2px}
+  #assinatura b{color:var(--navy);font-weight:700}
+  body.tv #assinatura{font-size:12px;bottom:6px}
   .demo-flag{background:var(--warn);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
   .ms{position:relative}
   .ms>button{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:400;min-width:200px;text-align:left;padding:6px 8px}
@@ -215,7 +218,7 @@
   <span class="status" id="status"></span>
 </div>
 
-<main>
+<main style="padding-bottom:34px">
   <!-- PRINCIPAL -->
   <section class="tab active" id="tPrincipal">
     <div class="saude" id="saude"></div>
@@ -264,6 +267,10 @@
 
   <!-- FONTES -->
   <section class="tab" id="tFontes">
+    <div class="card" id="cardFb" style="margin-bottom:14px;border-left:5px solid #f5a623">
+      <h2>☁ Compartilhar painel <span id="fbStatus"></span></h2>
+      <div id="fbCorpo"></div>
+    </div>
     <div class="drop" id="drop">Arraste aqui as planilhas de cada área (.xlsx, .xls, .csv) — mas para atualizar sozinho a cada 15 min use <b>📄 Selecionar planilhas</b> (Chrome/Edge).</div>
     <div class="card">
       <h2>Planilhas carregadas</h2>
@@ -289,6 +296,7 @@
 </main>
 </div><!-- /stage -->
 <button id="btnSairTV" title="Sair do modo TV (Esc)">✕ Sair do modo TV</button>
+<div id="assinatura">Desenvolvido por <b>Luiz Filipe Dos Santos Pereira</b> · PCM Manutenção · DSM Mairinque</div>
 <div id="tip"></div>
 <div class="modal" id="cfgModal"><div class="mbox" id="cfgBox"></div></div>
 
@@ -663,6 +671,7 @@ async function lerConectadas(silencioso=false){
   $('#status').innerHTML = `${files.length} de ${arqHandles.length} planilha(s) lida(s) · atualizado ${hhmm(new Date())} · próxima ${hhmm(prox)}`
     + (falhas.length? ` · <button id="btnLiberar" style="background:var(--warn);color:#000;padding:3px 10px" title="${esc(falhas.join('\n'))}">🔓 Liberar leitura de ${falhas.length} planilha(s)</button>`:'');
   const bl=$('#btnLiberar'); if(bl) bl.onclick=()=>lerConectadas(false);
+  if (files.length && fb) publicarFb();
 }
 $('#btnConectar').onclick = async ()=>{
   if(!window.showOpenFilePicker){ alert('Seu navegador não permite manter as planilhas conectadas. Use Chrome ou Edge. Vou abrir a seleção comum (sem atualização automática).'); $('#inpArq').click(); return; }
@@ -1070,6 +1079,7 @@ function renderSaude(){
   // indicador "ao vivo" no topo
   const dot=$('#liveDot'), txt=$('#liveTxt');
   if (isDemo){ dot.className='dot warn'; txt.textContent='DADOS DE EXEMPLO'; }
+  else if (fontes.length && fontes.every(f=>f.origem==='firebase')){ dot.className='dot on'; txt.textContent='AO VIVO · PAINEL COMPARTILHADO'+(fbInfo&&fbInfo.em?' · '+new Date(fbInfo.em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''); }
   else if (typeof arqHandles!=='undefined' && arqHandles.length){ dot.className='dot on'; txt.textContent='AO VIVO · ATUALIZA A CADA 15 MIN'; }
   else { dot.className='dot warn'; txt.textContent='PLANILHAS CARREGADAS'; }
 }
@@ -1357,6 +1367,108 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
 $('#btnTV').onclick=()=>modoTV(true);
 $('#btnSairTV').onclick=()=>modoTV(false);
 
+/* ================= COMPARTILHAR VIA FIREBASE =================
+   Publicador: o computador que lê as planilhas envia um resumo (CMR + paradas dos últimos meses) para o Firestore.
+   Quem só visualiza (TV, colegas): abre o link e recebe os dados ao vivo do Firestore — não precisa das planilhas.
+   Para quem abrir o link já sair conectado, cole aqui o firebaseConfig do seu projeto (Console Firebase → Configurações do projeto → Seus apps → Web).
+   Ex.: const FIREBASE_CONFIG = { apiKey:"...", authDomain:"...", projectId:"...", storageBucket:"...", messagingSenderId:"...", appId:"..." }; */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDqsGePqgcER4E7Vtkci_FcjMDD7iNS7IA",
+  authDomain: "dash-saudeatv.firebaseapp.com",
+  projectId: "dash-saudeatv",
+  storageBucket: "dash-saudeatv.firebasestorage.app",
+  messagingSenderId: "531853245999",
+  appId: "1:531853245999:web:60bb3e955a9bf0a74950da"
+};
+const FB_COL='saude_ativos', FB_DOC='painel';
+let fb=null, fbUser=null, fbUnsub=null, fbInfo=null, fbErro='', fbPublicando=false;
+const fbCfg=()=>{ if (FIREBASE_CONFIG) return FIREBASE_CONFIG; try{ return JSON.parse(localStorage.getItem('dashCMR_fbcfg')||'null'); }catch(e){ return null; } };
+const fbAuto=()=>{ try{ return localStorage.getItem('dashCMR_fbauto')!=='0'; }catch(e){ return true; } };
+const modoVisualizador=()=> /[?&]ver=1/.test(location.search) || !arqHandles.length;
+function carregarScript(src){ return new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error('Sem acesso a '+src)); document.head.appendChild(sc); }); }
+async function iniciarFirebase(){
+  const c=fbCfg(); if(!c){ desenharFb(); return false; } if (fb) return true;
+  try{
+    const b='https://www.gstatic.com/firebasejs/10.12.2/';
+    await carregarScript(b+'firebase-app-compat.js'); await carregarScript(b+'firebase-auth-compat.js'); await carregarScript(b+'firebase-firestore-compat.js');
+    firebase.initializeApp(c); fb={auth:firebase.auth(), db:firebase.firestore()};
+    fb.auth.onAuthStateChanged(u=>{ fbUser=u; fbErro=''; desenharFb(); if (modoVisualizador()) assinarFb(true); else { assinarFb(); if (!isDemo) publicarFb(); } });
+    if (modoVisualizador()) assinarFb();
+  }catch(e){ fbErro=e.message; }
+  desenharFb(); return !!fb;
+}
+const docFb=()=>fb.db.collection(FB_COL).doc(FB_DOC);
+// linha compacta: [data, ts, área, planta, máquina, min, motivo, classificação, tipo]
+const compactar=l=>[l.data?iso(l.data):null, l.ts||null, l.area, l.planta, l.maquina, Math.round(l.min*10)/10, String(l.motivo||'').slice(0,90), l.classif, l.tipo||''];
+const expandir=a=>({data:a[0]?new Date(a[0]+'T00:00'):null, ts:a[1], area:a[2], planta:a[3], maquina:a[4], min:a[5], motivo:a[6], classif:a[7], tipo:a[8]});
+async function publicarFb(manual=false){
+  if (!fb || isDemo || fbPublicando || modoVisualizador()) { if(manual) alert(modoVisualizador()?'Este computador está em modo visualização (sem planilhas selecionadas).':'Sem dados para publicar.'); return; }
+  if (!manual && !fbAuto()) return;
+  fbPublicando=true; desenharFb();
+  try{
+    const desde=n=>{ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-n); d.setHours(0,0,0,0); return d; };
+    const montar=lim=>JSON.stringify({v:1, fontes:fontes.filter(f=>f.origem!=='exemplo').map(f=>({nome:f.nome, area:f.area, preset:!!f.preset, manual:!!f.manual, colunas:f.colunas||{}, cmr:f.cmr||[],
+      linhas:(f.linhas||[]).filter(l=>!l.data||l.data>=lim).map(compactar), linhasDeriv:(f.linhasDeriv||[]).filter(l=>!l.data||l.data>=lim).map(compactar)}))});
+    if (fbErro && /permiss/i.test(fbErro)) fbErro='';
+    let txt=montar(desde(2)); if (txt.length>900000) txt=montar(desde(0));   // limite de 1 MB por documento
+    if (txt.length>1000000) throw new Error('Dados grandes demais para um documento ('+Math.round(txt.length/1024)+' KB).');
+    await docFb().set({dados:txt, atualizadoEm:new Date().toISOString(), por:(fbUser&&fbUser.email)||'publicador', kb:Math.round(txt.length/1024)});
+    fbInfo={em:new Date().toISOString(), por:(fbUser&&fbUser.email)||'publicador', kb:Math.round(txt.length/1024)}; fbErro='';
+  }catch(e){ fbErro= /permission/i.test(e.message)? 'Sem permissão para gravar — confira as regras do Firestore (allow write).' : 'Falha ao publicar: '+e.message; }
+  fbPublicando=false; desenharFb();
+}
+function assinarFb(reiniciar=false){
+  if (!fb) return; if (fbUnsub && !reiniciar) return; if (fbUnsub){ fbUnsub(); fbUnsub=null; }
+  fbUnsub = docFb().onSnapshot(d=>{
+    fbErro='';
+    if (!d.exists){ fbInfo=null; desenharFb(); return; }
+    const x=d.data(); fbInfo={em:x.atualizadoEm, por:x.por, kb:x.kb};
+    if (!modoVisualizador()){ desenharFb(); return; }
+    try{
+      const dados=JSON.parse(x.dados);
+      fontes=dados.fontes.map(f=>({...f, origem:'firebase', linhas:(f.linhas||[]).map(expandir), linhasDeriv:(f.linhasDeriv||[]).map(expandir)}));
+      isDemo=false; salvar(); registrarNovas(); preencherFiltros(); render();
+    }catch(e){ fbErro='Dados recebidos inválidos: '+e.message; }
+    desenharFb();
+  }, e=>{ fbErro = /permission/i.test(e.message)? 'Sem permissão para ler — entre com um usuário autorizado.' : e.message; desenharFb(); });
+}
+function desenharFb(){
+  const st=$('#fbStatus'), cp=$('#fbCorpo'); if(!cp) return;
+  const c=fbCfg(), link=location.origin+location.pathname+'?ver=1&tv=1';
+  const quando=fbInfo&&fbInfo.em? new Date(fbInfo.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  st.textContent = !c? '· não configurado' : !fb? '· conectando…' : modoVisualizador()? '· modo visualização (dados compartilhados)' : '· modo publicador (este computador lê as planilhas)';
+  if (!c){
+    cp.innerHTML=`<p class="hint" style="font-size:13px">Cole a <b>configuração de compartilhamento</b> do projeto. Pode colar o bloco inteiro.</p>
+      <textarea id="fbCfgTxt" style="width:100%;height:110px;font:12px monospace;border:1px solid var(--line);border-radius:6px;padding:6px" placeholder='{ apiKey: "...", authDomain: "...", projectId: "...", appId: "..." }'></textarea>
+      <p><button id="fbCfgSalvar">Salvar e conectar</button></p>`;
+    $('#fbCfgSalvar').onclick=()=>{ const t=$('#fbCfgTxt').value; const m=t.match(/\{[\s\S]*\}/); if(!m){ alert('Não achei o bloco { ... }.'); return; }
+      let o; try{ o=Function('"use strict";return ('+m[0]+')')(); }catch(e){ alert('Configuração inválida: '+e.message); return; }
+      if(!o||!o.apiKey||!o.projectId){ alert('Faltam apiKey/projectId.'); return; }
+      try{ localStorage.setItem('dashCMR_fbcfg',JSON.stringify(o)); }catch(e){} iniciarFirebase(); };
+    return;
+  }
+  cp.innerHTML=`
+    ${fbErro?`<p style="color:var(--bad);font-weight:600">⚠ ${esc(fbErro)}</p>`:''}
+    <div class="frow" style="align-items:flex-end">
+      ${fbUser? `<span style="font-size:13px">Conectado como <b>${esc(fbUser.email||'usuário')}</b></span> <button class="light" id="fbSair">Sair</button>`
+              : /permiss/i.test(fbErro)? `<label>E-mail <input id="fbEmail" type="email" autocomplete="username"></label><label>Senha <input id="fbSenha" type="password" autocomplete="current-password"></label><button id="fbEntrar">Entrar</button>`
+              : `<span style="font-size:13px;color:var(--ok);font-weight:600">● Conectado ao compartilhamento</span>`}
+    </div>
+    <p style="font-size:13px;margin:8px 0">Última publicação: <b>${quando||'nenhuma ainda'}</b>${fbInfo&&fbInfo.por?' · por '+esc(fbInfo.por):''}${fbInfo&&fbInfo.kb?' · '+fbInfo.kb+' KB':''}</p>
+    ${!modoVisualizador()? `<div class="frow" style="align-items:center">
+        <button id="fbPublicar" ${!fbPublicando?'':'disabled'}>${fbPublicando?'Publicando…':'☁ Publicar agora'}</button>
+        <label style="flex-direction:row;align-items:center;gap:6px;font-size:13px;text-transform:none;color:var(--ink)"><input type="checkbox" id="fbAuto" ${fbAuto()?'checked':''}> publicar sozinho a cada leitura (15 min)</label></div>` : ''}
+    <p class="hint" style="font-size:13px">Link para a TV e para os colegas (abre em modo TV, com os dados ao vivo): <br><code id="fbLink">${esc(link)}</code> <button class="light" id="fbCopiar">Copiar</button></p>
+    ${FIREBASE_CONFIG? '' : `<p class="hint">A configuração está salva só neste navegador. Para quem abrir o link já sair conectado, a configuração precisa estar no index.html. <button class="light" id="fbEsquecer">Trocar configuração</button></p>`}`;
+  const on=(id,fn)=>{ const e=$('#'+id); if(e) e.onclick=fn; };
+  on('fbEntrar', async()=>{ try{ await fb.auth.signInWithEmailAndPassword($('#fbEmail').value.trim(), $('#fbSenha').value); }catch(e){ fbErro='Login: '+e.message; desenharFb(); } });
+  on('fbSair', ()=>fb.auth.signOut());
+  on('fbPublicar', ()=>publicarFb(true));
+  on('fbCopiar', ()=>{ try{ navigator.clipboard.writeText(link); }catch(e){} });
+  on('fbEsquecer', ()=>{ try{ localStorage.removeItem('dashCMR_fbcfg'); }catch(e){} location.reload(); });
+  const a=$('#fbAuto'); if(a) a.onchange=()=>{ try{ localStorage.setItem('dashCMR_fbauto',a.checked?'1':'0'); }catch(e){} };
+}
+
 /* ================= INÍCIO ================= */
 (async()=>{
   if (typeof XLSX==='undefined'){ document.body.insertAdjacentHTML('afterbegin','<div style="background:#d64545;color:#fff;padding:8px 24px">Não foi possível carregar a biblioteca de leitura de Excel (sem internet?). Os gráficos funcionam, mas a leitura de .xlsx precisa de acesso a cdn.jsdelivr.net.</div>'); }
@@ -1367,6 +1479,7 @@ $('#btnSairTV').onclick=()=>modoTV(false);
   if (/[?&]tv=1/.test(location.search) || tvSalvo==='1') modoTV(true,false);
   const hs=await idbGet('arqs');
   if (Array.isArray(hs) && hs.length){ arqHandles=hs; await lerConectadas(true); }
+  iniciarFirebase();
   // relê as planilhas selecionadas a cada 15 min (enquanto a página estiver aberta)
   setInterval(()=>{ if(arqHandles.length) lerConectadas(true); }, 15*60*1000);
 })();
