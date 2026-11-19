@@ -126,6 +126,21 @@
   .sd.indice{border-left-color:var(--teal);background:linear-gradient(135deg,#fff 60%,#e6f6f5)}
   .barra{display:flex;height:10px;border-radius:6px;overflow:hidden;margin:6px 0 4px;background:#eef2f6}
   .barra i{display:block;height:100%}
+  /* ===== MODO TV: tudo numa tela só ===== */
+  body.tv{overflow:hidden;background:var(--bg)}
+  body.tv #stage{width:1920px;transform-origin:top left;position:absolute;left:0;top:0}
+  body.tv nav.tabs, body.tv .filters, body.tv .hdr-actions{display:none}
+  body.tv main{padding:10px 18px 12px}
+  body.tv #tPareto, body.tv #tFontes{display:none!important}
+  body.tv #tPrincipal{display:block!important}
+  body.tv #bancoBusca{display:none}
+  body.tv #banco{max-height:none!important;overflow:hidden}
+  body.tv .sub .inf .mp{display:none}
+  body.tv .plant .cmp{font-size:10px}
+  body.tv .saude{margin-bottom:10px}
+  body.tv.ocioso, body.tv.ocioso *{cursor:none!important}
+  #btnSairTV{display:none;position:fixed;right:14px;bottom:14px;z-index:60;background:var(--navy);opacity:.85}
+  body.tv:not(.ocioso) #btnSairTV{display:block}
   .demo-flag{background:var(--warn);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
   .ms{position:relative}
   .ms>button{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:400;min-width:200px;text-align:left;padding:6px 8px}
@@ -166,6 +181,7 @@
 </style>
 </head>
 <body>
+<div id="stage">
 <header>
   <div class="brand">
     <div class="logo">ANH</div>
@@ -176,6 +192,7 @@
   <div class="live"><span class="dot" id="liveDot"></span><div><b id="liveTxt">AGUARDANDO DADOS</b><small id="relogio"></small></div></div>
   <div class="hdr-actions">
     <button id="btnConectar" title="Escolha as planilhas de cada área (Chrome/Edge). Elas são relidas a cada 15 min.">📄 Selecionar planilhas</button>
+    <button id="btnTV" class="ghost" title="Tela cheia para TV: tudo numa tela só, sem rolagem">📺 Modo TV</button>
     <button id="btnAtualizar" class="ghost" title="Relê agora as planilhas selecionadas">⟳ Atualizar</button>
     <input type="file" id="inpArq" accept=".xlsx,.xlsm,.xls,.csv" multiple hidden>
   </div>
@@ -270,6 +287,8 @@
     </div>
   </section>
 </main>
+</div><!-- /stage -->
+<button id="btnSairTV" title="Sair do modo TV (Esc)">✕ Sair do modo TV</button>
 <div id="tip"></div>
 <div class="modal" id="cfgModal"><div class="mbox" id="cfgBox"></div></div>
 
@@ -426,6 +445,21 @@ const PRESETS = [
     cmr:{ aba:'Performance Mensal', mes:'mes', cmr:'cmr', sentido:'menor' },
     par:{ aba:'Paradas Totais', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
           maquina:'equipamento', duracao:'duracao2', classif:'classificacao', motivo:'motivo' } } },
+  { id:'apollo', match:['apollo','spray dryer','sd'], grupo:'Apollo',
+    // CMR SECAGEM = paradas da secagem (aba Paradas); CMR REATORES = paradas dos reatores (fase líquida / solução)
+    cmr:{ aba:'Performance mensal', mes:'mes', cmr:'cmr secagem', sentido:'menor', subs:{ 'Secagem':'cmr secagem', 'Solução':'cmr reatores' } },
+    par:{ aba:'Paradas', unid:'h', plantaFixa:'Secagem', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          maquina:'motivo', duracao:'duracao decimal', classif:'classificacao', motivo:'detalhes e causa raiz' } },
+    par2:{ aba:'Reatores (Paradas)', unid:'h', plantaFixa:'Solução', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          maquina:'motivo', duracao:'duracao decimal', classif:'classificacao', motivo:'detalhes e causa raiz' } } },
+  { id:'hidrocal', match:['hidrocal'], grupo:'Hidrocal',
+    cmr:{ aba:'Performance', mes:'mes', cmr:'cmr', sentido:'menor' },
+    par:{ aba:'Banco_paradas', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          maquina:'falha nivel 1', duracao:'duracao (decimal)', classif:'causa', tipo:'efeito', motivo:'detalhes e causa raiz' } } },
+  { id:'tmforberg', match:['forberg','tm forberg'], grupo:'TM Forberg',
+    cmr:{ aba:'Performance mensal', mes:'mes', cmr:'cmr', sentido:'menor', subs:{ 'Forberg 1':'cmr fb1', 'Forberg 2':'cmr fb2' } },
+    par:{ aba:'Banco_Paradas', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          planta:'forberg', maquina:'falha 1', duracao:'duracao2', classif:'classificacao', tipo:'efeito', motivo:'falha 2' } } },
   { id:'fosfato', match:['dcp','fosfato'], grupo:'Fosfato',
     cmr:{ aba:'Performance Mensal', mes:'mes', cmr:'cmr', sentido:'menor', extras:{ 'CMR reatores':'cmr reatores' } },
     // obs.: a coluna "DURAÇÃO (MIN)" desta planilha está em HORAS (1h10 = 1,17)
@@ -443,25 +477,38 @@ function acharCol(H, nome){ const h=(H||[]).map(v=>norm(v).replace(/\s+/g,' '));
 function acharHdr(aoa, nomes){ for (let i=0;i<Math.min(120,aoa.length);i++){ if(nomes.every(n=>acharCol(aoa[i],n)>=0)) return i; } return -1; }
 function presetPara(wb, nome){
   const base=chave(nome.replace(/\.[^.]+$/,''));
-  const P=PRESETS.find(p=>p.match.some(m=>base.includes(chave(m)))); if(!P) return null;
+  const casa=m=>{ const t=chave(m); return t.length<=3 ? (' '+base+' ').includes(' '+t+' ') : base.includes(t); };
+  const P=PRESETS.find(p=>p.match.some(casa)); if(!P) return null;
   const cfg={grupo:P.grupo, _preset:P.id}; if (P.cmrDeriv) cfg.cmrDeriv=P.cmrDeriv;
   if (P.cmr){ const aba=acharAba(wb,P.cmr.aba);
     if (aba){ const aoa=aoaDe(wb,aba), hi=acharHdr(aoa,[P.cmr.mes,P.cmr.cmr]);
       if (hi>=0){ const H=aoa[hi];
         cfg.cmr={aba,hdr:hi+1,colMes:acharCol(H,P.cmr.mes),alvos:{_geral:acharCol(H,P.cmr.cmr)},modo:P.cmr.modo||'tabela',meta:P.cmr.meta??'',sentido:P.cmr.sentido||'menor'};
         if (P.cmr.colGeral) cfg.cmr.colGeral=letraIdx(P.cmr.colGeral);
+        if (P.cmr.subs) for (const [sb,nm] of Object.entries(P.cmr.subs)){ const j=acharCol(H,nm); if(j>=0) cfg.cmr.alvos[sb]=j; }
         if (P.cmr.extras){ cfg.cmr.extras={}; for (const [k,v] of Object.entries(P.cmr.extras)){ const j=acharCol(H,v); if(j>=0) cfg.cmr.extras[k]=j; } }
       } } }
   for (const key of ['par','par2']){ const Q=P[key]; if(!Q) continue; const aba=acharAba(wb,Q.aba); if(!aba) continue;
     const aoa=aoaDe(wb,aba), hi=acharHdr(aoa,[Q.cols.maquina,Q.cols.duracao]); if(hi<0) continue;
-    cfg[key]={aba,hdr:hi+1,unid:Q.unid||'min',cols:{}};
+    cfg[key]={aba,hdr:hi+1,unid:Q.unid||'min',cols:{}}; if (Q.plantaFixa) cfg[key].plantaFixa=Q.plantaFixa;
     for (const [k,v] of Object.entries(Q.cols)){ const j=acharCol(aoa[hi],v); if(j>=0) cfg[key].cols[k]=j; } }
   return cfg;
 }
 function lerWorkbook(wb, nomeArq){
   wbCache.set(nomeArq, wb);
-  if (CONFIG[nomeArq]) return lerComConfig(wb, nomeArq, CONFIG[nomeArq]);
   const pre=presetPara(wb, nomeArq);
+  if (CONFIG[nomeArq]){
+    // configuração salva no ⚙ tem prioridade, mas herda da configuração pronta o que ela não tiver
+    // (ex.: CMR por reator e paradas por reator, que vieram depois)
+    const cfg=JSON.parse(JSON.stringify(CONFIG[nomeArq]));
+    if (pre){
+      if (pre.cmrDeriv && !cfg.cmrDeriv) cfg.cmrDeriv=pre.cmrDeriv;
+      if (pre.par2 && (!cfg.par2 || !cfg.par2.aba || (cfg.cmrDeriv && (cfg.par2.cols||{}).tipo==null))) cfg.par2=pre.par2;
+      if (pre.cmr && pre.cmr.extras && cfg.cmr && !cfg.cmr.extras && cfg.cmr.aba===pre.cmr.aba) cfg.cmr.extras=pre.cmr.extras;
+      if (!cfg.grupo) cfg.grupo=pre.grupo;
+    }
+    return lerComConfig(wb, nomeArq, cfg);
+  }
   if (pre) return lerComConfig(wb, nomeArq, pre);
   const areaArq = nomeArq.replace(/\.[^.]+$/,'');
   const a=autoParadas(wb); let linhas=[], colunas={};
@@ -505,7 +552,9 @@ function lerComConfig(wb, nome, cfg){
     const aoa=aoaDe(wb,P.aba), hi=Math.max(0,(P.hdr||1)-1), map={_horas:P.unid==='h'};
     for (const [k,v] of Object.entries(P.cols||{})) if(v!==''&&v!=null) map[k]=+v;
     if (cols) for (const [k,v] of Object.entries(P.cols||{})) if(v!==''&&v!=null) cols[k]=(aoa[hi]||[])[v] ?? ('Coluna '+colLetra(+v));
-    return lerLinhas(aoa,hi,map,areaArq,cfg.grupo||null);
+    const ls=lerLinhas(aoa,hi,map,areaArq,cfg.grupo||null);
+    if (P.plantaFixa) ls.forEach(l=>{ if(l.planta==='(sem planta)') l.planta=P.plantaFixa; });
+    return ls;
   };
   linhas=lerPar(cfg.par,colunas);
   if (cfg.grupo && cfg.par && cfg.par.aba) colunas.area='Definida: '+cfg.grupo;
@@ -686,8 +735,8 @@ const ESTRUTURA = [
     {nome:'Secagem', alias:['secagem','secador','seca','dryer','spray dryer']} ]},
   {nome:'Polivitamínicos', alias:['polivitaminicos','polivitaminico','polivit','poli']},
   {nome:'TM Forberg', alias:['tm forberg','forberg','tmf','tm'], subs:[
-    {nome:'Forberg 1', alias:['forberg 1','tm forberg 1','tmf 1','tmf1','f1']},
-    {nome:'Forberg 2', alias:['forberg 2','tm forberg 2','tmf 2','tmf2','f2']} ]},
+    {nome:'Forberg 1', alias:['forberg 1','tm forberg 1','tmf 1','tmf1','f1','fb 1','fb1','fb_01']},
+    {nome:'Forberg 2', alias:['forberg 2','tm forberg 2','tmf 2','tmf2','f2','fb 2','fb2','fb_02']} ]},
   {nome:'Fosfato', alias:['fosfato'], faixa:true, subs:   // faixa:true = derivações em 2 colunas, abaixo do card
     [1,2,3,4,5,6,7,8].map(n=>({nome:'Reator 0'+n, alias:['reator '+n,'reat '+n,'rt '+n,'r '+n,String(n)]})), unidade:true },
   {nome:'Hidrocal', alias:['hidrocal']}
@@ -948,14 +997,15 @@ function renderPrincipal(L,dias,hDia){
       const g = c? gauge(c.v??0,compacto,c.v==null,rot||'',{cmr:true, meta:c.meta, sentido:c.sentido, ref})
                  : gauge(y.disp,compacto,y.semDados,rot||'disponibilidade (calc.)',{meta:0.95, amarelo:0.90, sentido:'maior', ref});
       return g + cmpHtml(v,ref,menor,compacto); };
-    const subs=(G.subs||[]).map(S=>{ const y=calc(l=>l._g===G.nome&&l._s===S.nome, l=>l._g===G.nome&&l._s===S.nome, usaDeriv, !!G.unidade);
+    const subs=(G.subs||[]).map(S=>{ const dS=usaDeriv && tudoD.some(l=>l._g===G.nome&&l._s===S.nome);
+      const y=calc(l=>l._g===G.nome&&l._s===S.nome, l=>l._g===G.nome&&l._s===S.nome, dS, !!G.unidade);
       const cs=cmrDe(G.nome,S.nome);
       if (G.faixa) return `<div class="mini ${y.semDados&&!cs?'vazio':''}" title="${cs?'CMR '+mesLabel(mesSel)+' · meta '+fmt(cs.meta*100,2)+'% ('+cs.metaTipo+')':'Disponibilidade calculada pelas paradas'}"><h4>${esc(S.nome)}</h4>
         ${gz(S.nome,cs,y,true)}
         ${y.semDados?'':`<b>${fmtInt(y.qtd)}</b> par. · <b>${fmt(y.h,1)} h</b>`}</div>`;
       const g2=gz(S.nome,cs,y,true), i2=g2.indexOf('<div class="cmp"'), gSvg=i2<0?g2:g2.slice(0,i2), gCmp=i2<0?'':g2.slice(i2);
       return `<div class="sub ${y.semDados&&!cs?'vazio':''}" title="${cs?'CMR '+mesLabel(mesSel)+' · meta '+fmt(cs.meta*100,2)+'% ('+cs.metaTipo+')':'Disponibilidade calculada pelas paradas'}">${gSvg}
-        <div class="inf"><h4>${esc(S.nome)}</h4>${gCmp}${cs?`<span style="color:var(--teal);font-weight:700">CMR ${mesLabel(mesSel)}</span><br>`:''}${y.semDados?(cs?'':'sem dados'):`Paradas <b>${fmtInt(y.qtd)}</b> · <b>${fmt(y.h,1)} h</b><br>${y.top?'Mais parou: <b>'+esc(y.top.k)+'</b>':''}`}</div></div>`; }).join('');
+        <div class="inf"><h4>${esc(S.nome)}</h4>${gCmp}${cs?`<span style="color:var(--teal);font-weight:700">CMR ${mesLabel(mesSel)}</span><br>`:''}${y.semDados?(cs?'':'sem dados'):`Paradas <b>${fmtInt(y.qtd)}</b> · <b>${fmt(y.h,1)} h</b><br>${y.top?'<span class="mp">Mais parou: <b>'+esc(y.top.k)+'</b></span>':''}`}</div></div>`; }).join('');
     const cg=cmrDe(G.nome,null);
     return `<div class="col"><div class="plant ${x.semDados&&!cg?'vazio':''}">
       <h3>${esc(G.nome)}</h3><div class="ar">${G.subs?G.subs.length+' derivações · ':''}${x.n} máquina(s)</div>
@@ -970,7 +1020,36 @@ function renderPrincipal(L,dias,hDia){
   }).join('') + faixas.join('') || '<div class="empty">Nenhuma planta no filtro</div>';
   salvarHist();
   renderSaude();
+  setTimeout(ajustarTV,0);
 }
+/* ---------- MODO TV ---------- */
+function ajustarTV(){
+  const st=$('#stage');
+  if (!document.body.classList.contains('tv')){ st.style.transform=''; st.style.width=''; return; }
+  st.style.transform='none';
+  // largura de desenho acompanha o formato da tela, para ocupar tudo sem sobrar faixa
+  const asp=window.innerWidth/window.innerHeight; let W=1920; st.style.width=W+'px'; let H=st.scrollHeight;
+  for (let i=0;i<4;i++){ const W2=Math.max(1600, Math.round(H*asp)); if (Math.abs(W2-W)<4) break; W=W2; st.style.width=W+'px'; H=st.scrollHeight; }
+  const s=Math.min(window.innerWidth/W, window.innerHeight/H);
+  st.style.transform=`scale(${s})`;
+}
+function modoTV(liga, telaCheia=true){
+  document.body.classList.toggle('tv', liga);
+  if (liga && telaCheia && document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  if (!liga && document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  try{ localStorage.setItem('dashCMR_tv', liga?'1':'0'); }catch(e){}
+  // volta para a visão geral e no padrão "hoje"
+  if (liga){ document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab==='tPrincipal'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id==='tPrincipal')); }
+  render(); setTimeout(ajustarTV,50);
+}
+document.addEventListener('DOMContentLoaded',()=>{});
+let tOcioso=null;
+document.addEventListener('mousemove',()=>{ document.body.classList.remove('ocioso'); clearTimeout(tOcioso); tOcioso=setTimeout(()=>document.body.classList.add('ocioso'),3000); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && document.body.classList.contains('tv')) modoTV(false); });
+window.addEventListener('resize',ajustarTV);
+document.addEventListener('fullscreenchange',()=>setTimeout(ajustarTV,100));
+
 /* ---------- faixa de saúde geral ---------- */
 function renderSaude(){
   const mes=$('#fMes').value; $('#secMes').textContent = mes? '· '+mesLabel(mes) : '';
@@ -1013,8 +1092,8 @@ function renderBanco(L){
   const agora=Date.now();
   let arr=L.filter(l=>!q||norm([l.maquina,l.planta,l.area,l.motivo,l.classif].join(' ')).includes(q))
            .sort((a,b)=>(b.ts||+b.data||0)-(a.ts||+a.data||0));
-  const total=arr.length; arr=arr.slice(0,300);
-  $('#bancoInfo').textContent=`· ${fmtInt(total)} parada(s)${total>300?' — mostrando as 300 mais recentes':''}`;
+  const total=arr.length; arr=arr.slice(0, document.body.classList.contains('tv')? 7 : 300);
+  $('#bancoInfo').textContent=`· ${fmtInt(total)} parada(s)${document.body.classList.contains('tv')? ' · últimas '+Math.min(total,7) : total>300?' — mostrando as 300 mais recentes':''}`;
   if(!arr.length){ $('#banco').innerHTML='<div class="empty">Nenhuma parada no filtro</div>'; return; }
   $('#banco').innerHTML=`<table><tr><th>Data / hora</th><th>Planta</th><th>Área</th><th>Máquina</th><th>Classificação</th><th>Motivo</th><th class="n">Tempo parado</th></tr>
     ${arr.map(l=>{ const nova=(novasAte.get(chaveParada(l))||0)>agora;
@@ -1275,11 +1354,17 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id===b.dataset.tab));
 });
 
+$('#btnTV').onclick=()=>modoTV(true);
+$('#btnSairTV').onclick=()=>modoTV(false);
+
 /* ================= INÍCIO ================= */
 (async()=>{
   if (typeof XLSX==='undefined'){ document.body.insertAdjacentHTML('afterbegin','<div style="background:#d64545;color:#fff;padding:8px 24px">Não foi possível carregar a biblioteca de leitura de Excel (sem internet?). Os gráficos funcionam, mas a leitura de .xlsx precisa de acesso a cdn.jsdelivr.net.</div>'); }
   if (!carregar()) demo();
   preencherFiltros(); render();
+  // abre direto em modo TV com ?tv=1 no endereço (ou se ficou em modo TV da última vez)
+  let tvSalvo=null; try{ tvSalvo=localStorage.getItem('dashCMR_tv'); }catch(e){}
+  if (/[?&]tv=1/.test(location.search) || tvSalvo==='1') modoTV(true,false);
   const hs=await idbGet('arqs');
   if (Array.isArray(hs) && hs.length){ arqHandles=hs; await lerConectadas(true); }
   // relê as planilhas selecionadas a cada 15 min (enquanto a página estiver aberta)
