@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Paradas de Máquina CMR · Dashboard</title>
+<title>Monitoramento · Saúde dos Ativos · Planta DSM Mairinque</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -66,7 +66,7 @@
   .mini{border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:center;font-size:11px;color:var(--muted)}
   .mini h4{margin:0;font-size:13px;color:var(--navy)}
   .mini svg{max-width:96px!important;margin:0 auto!important}
-  .subs2{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding-top:8px;border-top:2px solid #c9d6e3;margin:0 4px;position:relative}
+  .subs2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;padding-top:8px;border-top:2px solid #c9d6e3;margin:0 4px;position:relative}
   .subs2::before{content:'';position:absolute;left:50%;top:-10px;height:8px;border-left:2px solid #c9d6e3}
   .subs2 .mini{background:var(--card);border:0;border-top:3px solid var(--teal);box-shadow:0 1px 2px rgba(0,0,0,.05);padding:5px 4px;line-height:1.3}
   .subs2 .mini h4{font-size:12px}
@@ -97,6 +97,35 @@
   .pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;background:var(--teal-l);color:#00706b;font-weight:600;margin:1px}
   .pill.miss{background:#fde8e8;color:#a33}
   #btnLimpar.on{background:var(--warn);color:#000;border-color:var(--warn)}
+  .cmp{font-size:11px;color:var(--muted);text-align:center;margin:-2px 0 4px;white-space:nowrap}
+  .cmp b{font-weight:700} .cmp b.bom{color:var(--ok)} .cmp b.ruim{color:var(--bad)}
+  .mini .cmp,.sub .cmp{margin:0;text-align:left;font-size:10px}
+  .mini .cmp{text-align:center}
+  header{background:radial-gradient(1200px 120px at 20% 0,#1b4f86 0,transparent 60%),linear-gradient(90deg,#071d36,#0b2a4a 55%,#0e3a63);border-bottom:3px solid var(--teal);padding:12px 24px}
+  .brand .sep{width:1px;height:38px;background:rgba(255,255,255,.25)}
+  .brand h1{font-size:22px;font-weight:700;letter-spacing:.2px;line-height:1.1}
+  .brand .kicker{display:block;font-size:10px;letter-spacing:2.5px;color:#7fe0da;opacity:1;font-weight:700}
+  .live{display:flex;align-items:center;gap:10px;margin-left:auto;padding:6px 12px;border:1px solid rgba(255,255,255,.18);border-radius:8px;background:rgba(255,255,255,.05)}
+  .live b{display:block;font-size:11px;letter-spacing:1.5px}
+  .live small{font-size:12px;opacity:.8;font-variant-numeric:tabular-nums}
+  .live .dot{width:11px;height:11px;border-radius:50%;background:#8a99a8;flex:none}
+  .live .dot.on{background:#2ee27a;box-shadow:0 0 0 0 rgba(46,226,122,.7);animation:pulso 1.8s infinite}
+  .live .dot.warn{background:var(--warn)}
+  @keyframes pulso{0%{box-shadow:0 0 0 0 rgba(46,226,122,.6)}70%{box-shadow:0 0 0 10px rgba(46,226,122,0)}100%{box-shadow:0 0 0 0 rgba(46,226,122,0)}}
+  .hdr-actions{margin-left:0}
+  .sec-title span{font-weight:400;color:var(--muted);text-transform:none}
+  .saude{display:grid;grid-template-columns:1.3fr repeat(4,1fr);gap:12px;margin-bottom:14px}
+  @media(max-width:1000px){.saude{grid-template-columns:1fr 1fr}}
+  .sd{background:var(--card);border-radius:10px;padding:12px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05);border-left:5px solid var(--line);display:flex;flex-direction:column;justify-content:center}
+  .sd .l{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .sd .v{font-size:28px;font-weight:800;color:var(--navy);line-height:1.15}
+  .sd .s{font-size:12px;color:var(--muted)}
+  .sd.verde{border-left-color:#1f9d55}.sd.verde .v{color:#1f9d55}
+  .sd.amarelo{border-left-color:#e0a100}.sd.amarelo .v{color:#b88400}
+  .sd.vermelho{border-left-color:#d64545}.sd.vermelho .v{color:#d64545}
+  .sd.indice{border-left-color:var(--teal);background:linear-gradient(135deg,#fff 60%,#e6f6f5)}
+  .barra{display:flex;height:10px;border-radius:6px;overflow:hidden;margin:6px 0 4px;background:#eef2f6}
+  .barra i{display:block;height:100%}
   .demo-flag{background:var(--warn);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
   .ms{position:relative}
   .ms>button{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:400;min-width:200px;text-align:left;padding:6px 8px}
@@ -140,9 +169,11 @@
 <header>
   <div class="brand">
     <div class="logo">ANH</div>
-    <div><h1>Paradas de Máquina · Plantas CMR</h1><small>a dsm-firmenich company · Manutenção Mairinque</small></div>
+    <div class="sep"></div>
+    <div><small class="kicker">MONITORAMENTO</small><h1>Saúde dos Ativos</h1><small>Planta DSM Mairinque · ANH a dsm-firmenich company</small></div>
     <span id="demoFlag" class="demo-flag" style="display:none">DADOS DE EXEMPLO</span>
   </div>
+  <div class="live"><span class="dot" id="liveDot"></span><div><b id="liveTxt">AGUARDANDO DADOS</b><small id="relogio"></small></div></div>
   <div class="hdr-actions">
     <button id="btnConectar" title="Escolha as planilhas de cada área (Chrome/Edge). Elas são relidas a cada 15 min.">📄 Selecionar planilhas</button>
     <button id="btnAtualizar" class="ghost" title="Relê agora as planilhas selecionadas">⟳ Atualizar</button>
@@ -150,9 +181,9 @@
   </div>
 </header>
 <nav class="tabs">
-  <button data-tab="tPrincipal" class="active">Principal</button>
-  <button data-tab="tPareto">Pareto de Máquinas</button>
-  <button data-tab="tFontes">Fontes de Dados</button>
+  <button data-tab="tPrincipal" class="active">◉ Visão geral</button>
+  <button data-tab="tPareto">▤ Pareto e CMR anual</button>
+  <button data-tab="tFontes">⚙ Fontes de dados</button>
 </nav>
 
 <div class="filters">
@@ -170,7 +201,8 @@
 <main>
   <!-- PRINCIPAL -->
   <section class="tab active" id="tPrincipal">
-    <div class="sec-title">Disponibilidade por planta CMR</div>
+    <div class="saude" id="saude"></div>
+    <div class="sec-title">Saúde dos ativos por área · CMR <span id="secMes"></span></div>
     <div class="plants" id="plants" style="margin-bottom:16px"></div>
     <div class="card">
       <div class="toolbar" style="margin-bottom:8px">
@@ -183,6 +215,17 @@
 
   <!-- PARETO -->
   <section class="tab" id="tPareto">
+    <div class="card" style="margin-bottom:14px">
+      <div class="toolbar">
+        <h2 style="margin:0">CMR do ano</h2>
+        <label style="font-size:12px;color:var(--muted)">Ano <select id="anoCmr"></select></label>
+        <label style="font-size:12px;color:var(--muted)">Área <select id="areaCmr"></select></label>
+        <span class="hint" style="margin-left:auto">Barra verde = dentro da meta · amarela = até 15% acima · vermelha = acima · linha tracejada = meta do mês</span>
+      </div>
+      <div id="graficoAno"></div>
+      <h2 style="margin-top:14px">Todas as áreas · CMR por mês <span>(clique numa linha para ver no gráfico)</span></h2>
+      <div class="tblbox" id="tabelaAno"></div>
+    </div>
     <div class="card">
       <div class="toolbar">
         <h2 style="margin:0">Pareto · máquinas que mais pararam</h2>
@@ -386,10 +429,11 @@ const PRESETS = [
   { id:'fosfato', match:['dcp','fosfato'], grupo:'Fosfato',
     cmr:{ aba:'Performance Mensal', mes:'mes', cmr:'cmr', sentido:'menor', extras:{ 'CMR reatores':'cmr reatores' } },
     // obs.: a coluna "DURAÇÃO (MIN)" desta planilha está em HORAS (1h10 = 1,17)
-    par:{ aba:'Paradas - Geral', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
-          maquina:'falha nivel 1', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que' } },
-    par2:{ aba:'Paradas - Reatores', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
-          planta:'reator', maquina:'equipamento', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que' } } }
+    par:{ aba:'Paradas - Geral', unid:'h', cols:{ data:'data', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          maquina:'falha nivel 1', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que', tipo:'efeito' } },
+    par2:{ aba:'Paradas - Reatores', unid:'h', cols:{ data:'data', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          planta:'reator', maquina:'equipamento', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que', tipo:'efeito' } },
+    cmrDeriv:{ base:'CMR reatores', classes:['MANUTENÇÃO MECÂNICA','MANUTENÇÃO ELÉTRICA'], tipo:'PARADA NÃO PROGRAMADA', n:8 } }
 ];
 const letraIdx = L => [...String(L).toUpperCase()].reduce((n,ch)=>n*26+(ch.charCodeAt(0)-64),0)-1;
 const kAba = t => norm(t).replace(/[^a-z0-9]/g,'');
@@ -400,7 +444,7 @@ function acharHdr(aoa, nomes){ for (let i=0;i<Math.min(120,aoa.length);i++){ if(
 function presetPara(wb, nome){
   const base=chave(nome.replace(/\.[^.]+$/,''));
   const P=PRESETS.find(p=>p.match.some(m=>base.includes(chave(m)))); if(!P) return null;
-  const cfg={grupo:P.grupo, _preset:P.id};
+  const cfg={grupo:P.grupo, _preset:P.id}; if (P.cmrDeriv) cfg.cmrDeriv=P.cmrDeriv;
   if (P.cmr){ const aba=acharAba(wb,P.cmr.aba);
     if (aba){ const aoa=aoaDe(wb,aba), hi=acharHdr(aoa,[P.cmr.mes,P.cmr.cmr]);
       if (hi>=0){ const H=aoa[hi];
@@ -467,7 +511,7 @@ function lerComConfig(wb, nome, cfg){
   if (cfg.grupo && cfg.par && cfg.par.aba) colunas.area='Definida: '+cfg.grupo;
   linhasDeriv=lerPar(cfg.par2,null);   // paradas por derivação (ex.: por reator) — só para os cards das derivações
   const C=cfg.cmr;
-  const meta = (C && C.meta!==''&&C.meta!=null && !isNaN(C.meta))? C.meta/100 : null, sentido=(C&&C.sentido)||'maior';
+  const meta = (C && C.meta!==''&&C.meta!=null && !isNaN(C.meta))? C.meta/100 : null, sentido=(C&&C.sentido)||'menor';
   // área do CMR: a escolhida; senão, pelo nome do arquivo
   const grupoCmr = cfg.grupo || (ESTRUTURA.find(G=>bate(areaArq,G.alias))||{}).nome || areaArq;
   const Gc = ESTRUTURA.find(x=>x.nome===grupoCmr);
@@ -504,6 +548,23 @@ function lerComConfig(wb, nome, cfg){
         const v=parsePct(row[+col]); if(v!=null) cmr.push({grupo:grupoCmr, sub:null, extra:nomeX, mes, v});
       }
     }
+  }
+  // CMR por derivação calculado com a mesma regra da planilha (ex.: CMR de cada reator):
+  // horas de manutenção não programada do reator ÷ (dias × 24). Os dias saem do próprio "CMR reatores" da planilha.
+  const D=cfg.cmrDeriv;
+  if (D && linhasDeriv.length){
+    const G=ESTRUTURA.find(x=>x.nome===grupoCmr), cls=D.classes.map(norm), tp=norm(D.tipo||'');
+    const porMes={};
+    linhasDeriv.forEach(l=>{ if(!l.data || !cls.includes(norm(l.classif)) || (tp && norm(l.tipo)!==tp)) return;
+      classificarPlanta(l); if(!l._s) return;
+      const m=`${l.data.getFullYear()}-${String(l.data.getMonth()+1).padStart(2,'0')}`;
+      (porMes[m]=porMes[m]||{})[l._s]=(porMes[m][l._s]||0)+l.min/60; });
+    cmr.filter(c=>c.extra===D.base).forEach(c=>{
+      const nums=porMes[c.mes]||{}, tot=Object.values(nums).reduce((a,b)=>a+b,0);
+      const horasUnid = (tot>0 && c.v>0)? tot/c.v/D.n : null;   // = dias × 24
+      ((G&&G.subs)||[]).forEach(S=>{ const v = c.v===0? 0 : horasUnid? (nums[S.nome]||0)/horasUnid : null;
+        if (v!=null) cmr.push({grupo:grupoCmr, sub:S.nome, mes:c.mes, v, meta, sentido, calc:true}); });
+    });
   }
   return {nome, area:cfg.grupo||areaArq, linhas, colunas, cmr, linhasDeriv, manual:!cfg._preset, preset:!!cfg._preset};
 }
@@ -748,14 +809,52 @@ function meiaLua(el, itens, unidade, centroLabel){
   bindTips(el);
 }
 /* meia-lua tipo medidor (0–100%) */
-function gauge(pct, compacto=false, semDados=false, rotulo='disponibilidade', corForcada=null){
-  const cx=100,cy=95,r=72,sw=18, p=Math.max(0,Math.min(1,pct));
-  const cor = semDados?'#b9c7d6': corForcada? corForcada : p>=0.95?'var(--ok)':p>=0.90?'var(--warn)':'var(--bad)';
-  return `<svg viewBox="0 0 200 110" style="width:100%;max-width:${compacto?'96px':'220px'};display:block;margin:${compacto?'0':'4px auto 0'}">
-    <path d="${arc(cx,cy,r,Math.PI,0)}" stroke="#eef2f6" stroke-width="${sw}" fill="none" stroke-linecap="round"/>
-    ${p>0?`<path d="${arc(cx,cy,r,Math.PI,Math.PI-p*Math.PI)}" stroke="${cor}" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`:''}
-    <text x="${cx}" y="${cy-(compacto?4:10)}" text-anchor="middle" font-size="${compacto?34:24}" font-weight="700" fill="#0b2a4a">${semDados?'—':fmt(pct*100, corForcada?2:1)+'%'}</text>
-    ${compacto?'':`<text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="10" fill="#5f6f80">${semDados?'sem dados':esc(rotulo)}</text>`}</svg>`;
+/* Meia-lua com farol (verde / amarelo / vermelho), traço VERMELHO de meta e traço escuro do dia anterior.
+   CMR (menor é melhor): escala de 0 até ~3× a meta, faixas verde ≤ meta, amarela até +15%, vermelha acima.
+   Disponibilidade calculada (maior é melhor): escala 0–100%, vermelha < 90%, amarela 90–95%, verde ≥ 95%. */
+const FAROL={verde:'#1f9d55', amarelo:'#e0a100', vermelho:'#d64545', cinza:'#b9c7d6'};
+function farolDe(v, meta, sentido, amarelo){
+  if (v==null || meta==null) return 'cinza';
+  if (sentido==='menor') return v<=meta? 'verde' : v<=meta*1.15? 'amarelo' : 'vermelho';
+  const lim = amarelo!=null? amarelo : meta*0.95;
+  return v>=meta? 'verde' : v>=lim? 'amarelo' : 'vermelho';
+}
+function gauge(pct, compacto=false, semDados=false, rotulo='', o={}){
+  const cx=100, cy=100, r=70, sw=compacto?18:16, meta=semDados? null : o.meta, sentido=o.sentido||'maior';
+  // escala
+  let esc1 = 1;
+  if (o.cmr){ const base=Math.max((meta||0.05)*3, (pct||0)*1.2, o.ref&&o.ref.v?o.ref.v*1.2:0, 0.05);
+    const passo = base<=0.1?0.01 : base<=0.3?0.05 : 0.1; esc1=Math.ceil(base/passo)*passo; }
+  const fr=v=>Math.max(0,Math.min(1,v/esc1)), ang=v=>Math.PI-fr(v)*Math.PI;
+  const f = semDados? 'cinza' : farolDe(pct, meta, sentido, o.amarelo), cor=FAROL[f];
+  // faixas do farol (anel externo fino)
+  let zonas='';
+  if (meta!=null){
+    const rz=r+sw/2+5, wz=compacto?6:5;
+    const cortes = sentido==='menor' ? [[0,meta,'verde'],[meta,meta*1.15,'amarelo'],[meta*1.15,esc1,'vermelho']]
+                                     : [[0,o.amarelo!=null?o.amarelo:meta*0.95,'vermelho'],[o.amarelo!=null?o.amarelo:meta*0.95,meta,'amarelo'],[meta,esc1,'verde']];
+    cortes.forEach(([a1,a2,c])=>{ if(fr(a2)<=fr(a1)) return; zonas+=`<path d="${arc(cx,cy,rz,ang(a1),ang(a2))}" stroke="${FAROL[c]}" stroke-width="${wz}" fill="none" opacity=".85"/>`; });
+  }
+  const p=fr(pct||0);
+  const valor = semDados? '' : (p>0.001? `<path d="${arc(cx,cy,r,Math.PI,Math.PI-p*Math.PI)}" stroke="${cor}" stroke-width="${sw}" fill="none" stroke-linecap="butt"/>` : '');
+  // traços: meta (vermelho) e dia anterior (azul-escuro)
+  const traco=(v,c,w,ext,tit)=>{ const a=ang(v), [x1,y1]=pt(cx,cy,r-sw/2-ext,a), [x2,y2]=pt(cx,cy,r+sw/2+ext+(compacto?6:5),a);
+    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"><title>${tit}</title></line>`; };
+  let tracos='';
+  if (o.ref && o.ref.v!=null && !semDados) tracos+=traco(o.ref.v,'#0b2a4a',compacto?4:2.5,2,'Anterior: '+fmt(o.ref.v*100,2)+'%');
+  if (meta!=null){ tracos+=traco(meta,'#d10000',compacto?6:4,4,'Meta: '+fmt(meta*100,2)+'%');
+    if (!compacto){ const [tx,ty]=pt(cx,cy,r+sw/2+18,ang(meta)); tracos+=`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="#d10000">meta ${fmt(meta*100,o.cmr?2:0)}%</text>`; } }
+  const txtV = semDados? '—' : fmt((pct||0)*100, o.cmr?2:1)+'%';
+  const farolTxt = {verde:'dentro da meta', amarelo:'atenção', vermelho:'fora da meta', cinza:semDados?'sem dados':'sem meta'}[f];
+  return `<svg viewBox="${compacto?'-6 4 212 100':'-18 0 236 130'}" style="width:100%;max-width:${compacto?'104px':'240px'};display:block;margin:${compacto?'0 auto':'2px auto 0'}">
+    <path d="${arc(cx,cy,r,Math.PI,0)}" stroke="#e9eef3" stroke-width="${sw}" fill="none"/>
+    ${zonas}${valor}${tracos}
+    <text x="${cx}" y="${cy-(compacto?3:22)}" text-anchor="middle" font-size="${compacto?24:23}" font-weight="800" fill="#0b2a4a">${txtV}</text>
+    ${compacto? '' : `<circle cx="${cx-40}" cy="${cy-7}" r="5" fill="${cor}"/><text x="${cx-32}" y="${cy-3.5}" font-size="10" font-weight="700" fill="${cor}">${farolTxt}</text>
+      <text x="${cx-r}" y="${cy+12}" text-anchor="middle" font-size="8.5" fill="#8a99a8">0%</text>
+      <text x="${cx+r}" y="${cy+12}" text-anchor="middle" font-size="8.5" fill="#8a99a8">${fmt(esc1*100,0)}%</text>
+      <text x="${cx}" y="${cy+26}" text-anchor="middle" font-size="9.5" fill="#5f6f80">${esc(rotulo)}</text>`}
+  </svg>`;
 }
 function agrupar(L,key,val){ const m=new Map(); L.forEach(l=>m.set(l[key],(m.get(l[key])||0)+val(l))); return [...m].map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v); }
 function topMais(arr,n){ if(arr.length<=n) return arr; const r=arr.slice(0,n-1); r.push({k:'Outros',v:arr.slice(n-1).reduce((s,i)=>s+i.v,0)}); return r; }
@@ -765,9 +864,58 @@ function render(){
   const {L,dias}=filtrado(); const hDia=+$('#fHoras').value||24;
   const nF=fontes.length;
   if (!arqHandles.length) $('#status').textContent = isDemo? 'Mostrando dados de exemplo — conecte suas planilhas' : `${nF} planilha(s) · ${fmtInt(todasLinhas().length)} registros`;
-  renderPrincipal(L,dias,hDia); renderPareto(L); renderFontes();
+  renderPrincipal(L,dias,hDia); renderPareto(L); renderAnual(); renderFontes();
 }
+/* ---------- CMR: valor por área/derivação/mês e META DINÂMICA ----------
+   Meta começa em 5%. A partir do momento em que existem 3 meses fechados anteriores,
+   a meta do mês passa a ser a MÉDIA desses 3 meses — nunca acima de 5% (só aperta, não afrouxa).
+   Se uma meta fixa for digitada no ⚙ Configurar, ela vale no lugar da dinâmica. */
+const META_BASE = 0.05, META_JANELA = 3;
+function cmrBruto(g, sb, mes){
+  const todos=fontes.flatMap(f=>f.cmr||[]);
+  const arr=todos.filter(c=>!c.extra && c.grupo===g && (c.sub||null)===(sb||null));
+  if (arr.length){ const c=arr.find(c=>c.mes===mes); return {tem:true, v:c?c.v:null, metaFixa:arr[0].meta, sentido:arr[0].sentido||'menor'}; }
+  if (!sb){ const ss=todos.filter(c=>!c.extra && c.grupo===g && c.sub);
+    if (ss.length){ const m=ss.filter(c=>c.mes===mes); return {tem:true, v:m.length?m.reduce((t,c)=>t+c.v,0)/m.length:null, metaFixa:ss[0].meta, sentido:ss[0].sentido||'menor', media:true}; } }
+  return {tem:false};
+}
+const mesMenos = (mes,n) => { let [y,m]=mes.split('-').map(Number); m-=n; while(m<1){ m+=12; y--; } return `${y}-${String(m).padStart(2,'0')}`; };
+function metaDin(g, sb, mes){
+  const vs=[]; for (let i=1;i<=META_JANELA;i++){ const b=cmrBruto(g,sb,mesMenos(mes,i)); if(!b.tem||b.v==null) return {meta:META_BASE, tipo:'base'}; vs.push(b.v); }
+  const med=vs.reduce((a,b)=>a+b,0)/vs.length;
+  return med<META_BASE ? {meta:med, tipo:'média 3 meses'} : {meta:META_BASE, tipo:'base'};
+}
+function cmrValor(g, sb, mes){
+  const b=cmrBruto(g,sb,mes); if(!b.tem) return null;
+  const md = b.metaFixa!=null ? {meta:b.metaFixa, tipo:'fixa'} : metaDin(g,sb,mes);
+  return {v:b.v, meta:md.meta, metaTipo:md.tipo, sentido:b.sentido, media:b.media};
+}
+function corCmr(c){ if(!c||c.v==null||c.meta==null) return 'var(--teal)';
+  return c.sentido==='menor' ? (c.v<=c.meta?'var(--ok)':c.v<=c.meta*1.15?'var(--warn)':'var(--bad)')
+                             : (c.v>=c.meta?'var(--ok)':c.v>=c.meta*0.95?'var(--warn)':'var(--bad)'); }
+
+/* ---------- histórico diário das meias-luas (para comparar com o dia anterior) ---------- */
+let HIST={}; try{ HIST=JSON.parse(localStorage.getItem('dashCMR_hist')||'{}')||{}; }catch(e){}
+let snap={};
+const hojeISO=()=>iso(new Date());
+function anterior(key){ const h=hojeISO(); const ds=Object.keys(HIST).filter(d=>d<h && HIST[d] && HIST[d][key]!=null).sort(); if(!ds.length) return null; const d=ds[ds.length-1]; return {v:HIST[d][key], d}; }
+function cmpHtml(v, ref, menorMelhor, compacto){
+  if (v==null) return '';
+  if (!ref) return compacto? '' : '<div class="cmp">comparação com ontem a partir de amanhã</div>';
+  const ont=new Date(); ont.setDate(ont.getDate()-1);
+  const quando = ref.d===iso(ont)? 'ontem' : ref.d.slice(8,10)+'/'+ref.d.slice(5,7);
+  const dlt=(v-ref.v)*100, igual=Math.abs(dlt)<0.005, bom = menorMelhor? dlt<0 : dlt>0;
+  return `<div class="cmp">${quando} ${fmt(ref.v*100,2)}% <b class="${igual?'':bom?'bom':'ruim'}">${igual?'= 0,00':(dlt>0?'▲ ':'▼ ')+fmt(Math.abs(dlt),2)} p.p.</b></div>`;
+}
+function salvarHist(){
+  if (isDemo || filtroManual || !Object.keys(snap).length) return;
+  HIST[hojeISO()] = {...(HIST[hojeISO()]||{}), ...snap};
+  const ds=Object.keys(HIST).sort(); while(ds.length>62) delete HIST[ds.shift()];
+  try{ localStorage.setItem('dashCMR_hist', JSON.stringify(HIST)); }catch(e){}
+}
+let resumo=[];
 function renderPrincipal(L,dias,hDia){
+  snap={}; resumo=[];
   const horas=L.reduce((s,l)=>s+l.min,0)/60;
   const maqs=new Set(L.map(l=>l.planta+'|'+l.maquina));
   const plantasTodas=[...new Set(todasLinhas().filter(l=>!$('#fArea').value||l.area===$('#fArea').value).filter(l=>!$('#fPlanta').value||l.planta===$('#fPlanta').value).map(l=>l.planta))];
@@ -785,15 +933,7 @@ function renderPrincipal(L,dias,hDia){
     return {h,qtd:lp.length,n,semDados:!base.length,disp:n?Math.max(0,1-h/(n*dias*hDia)):1,top:agrupar(lp,'maquina',l=>l.min/60)[0]};
   };
   const mesSel=$('#fMes').value, cmrTodos=fontes.flatMap(f=>f.cmr||[]);
-  const cmrDe=(g,sb)=>{
-    const arr=cmrTodos.filter(c=>!c.extra && c.grupo===g && (c.sub||null)===(sb||null));
-    if (arr.length){ const c=arr.find(c=>c.mes===mesSel); return {v:c?c.v:null, meta:arr[0].meta, sentido:arr[0].sentido}; }
-    if (!sb){ const ss=cmrTodos.filter(c=>!c.extra && c.grupo===g && c.sub); if(ss.length){ const m=ss.filter(c=>c.mes===mesSel);
-      return {v:m.length?m.reduce((t,c)=>t+c.v,0)/m.length:null, meta:ss[0].meta, sentido:ss[0].sentido, media:true}; } }
-    return null; };
-  const corCmr=c=>{ if(!c||c.v==null||c.meta==null) return 'var(--teal)';
-    return c.sentido==='menor' ? (c.v<=c.meta?'var(--ok)':c.v<=c.meta*1.15?'var(--warn)':'var(--bad)')
-                               : (c.v>=c.meta?'var(--ok)':c.v>=c.meta*0.95?'var(--warn)':'var(--bad)'); };
+  const cmrDe=(g,sb)=>cmrValor(g,sb,mesSel);
   const grupos=[...ESTRUTURA];
   if (tudo.some(l=>l._g==='Outras')) grupos.push({nome:'Outras'});
   const visiveis=grupos.filter(G=>!aF || tudo.some(l=>l.area===aF && l._g===G.nome));
@@ -801,26 +941,60 @@ function renderPrincipal(L,dias,hDia){
   $('#plants').innerHTML = visiveis.map(G=>{
     const x=calc(l=>l._g===G.nome, l=>l._g===G.nome);
     const usaDeriv=tudoD.some(l=>l._g===G.nome);
+    const gz=(k,c,y,compacto,rot)=>{   // meia-lua + comparação com o registro anterior
+      const v = c? c.v : (y.semDados? null : y.disp), menor = c? c.sentido==='menor' : false;
+      const key=G.nome+'|'+k+'|'+(c?'cmr':'disp'), ref=anterior(key); if (v!=null) snap[key]=v;
+      if (c && c.v!=null) resumo.push({nome:k||G.nome, area:G.nome, v:c.v, meta:c.meta, f:farolDe(c.v,c.meta,c.sentido)});
+      const g = c? gauge(c.v??0,compacto,c.v==null,rot||'',{cmr:true, meta:c.meta, sentido:c.sentido, ref})
+                 : gauge(y.disp,compacto,y.semDados,rot||'disponibilidade (calc.)',{meta:0.95, amarelo:0.90, sentido:'maior', ref});
+      return g + cmpHtml(v,ref,menor,compacto); };
     const subs=(G.subs||[]).map(S=>{ const y=calc(l=>l._g===G.nome&&l._s===S.nome, l=>l._g===G.nome&&l._s===S.nome, usaDeriv, !!G.unidade);
       const cs=cmrDe(G.nome,S.nome);
-      if (G.faixa) return `<div class="mini ${y.semDados&&!cs?'vazio':''}"><h4>${esc(S.nome)}</h4>
-        ${cs? gauge(cs.v??0,true,cs.v==null,'',corCmr(cs)) : gauge(y.disp,true,y.semDados)}
+      if (G.faixa) return `<div class="mini ${y.semDados&&!cs?'vazio':''}" title="${cs?'CMR '+mesLabel(mesSel)+' · meta '+fmt(cs.meta*100,2)+'% ('+cs.metaTipo+')':'Disponibilidade calculada pelas paradas'}"><h4>${esc(S.nome)}</h4>
+        ${gz(S.nome,cs,y,true)}
         ${y.semDados?'':`<b>${fmtInt(y.qtd)}</b> par. · <b>${fmt(y.h,1)} h</b>`}</div>`;
-      const gz= cs? gauge(cs.v??0,true,cs.v==null,'',corCmr(cs)) : gauge(y.disp,true,y.semDados);
-      return `<div class="sub ${y.semDados&&!cs?'vazio':''}" title="${cs?'CMR '+mesLabel(mesSel):'Disponibilidade calculada pelas paradas'}">${gz}
-        <div class="inf"><h4>${esc(S.nome)}</h4>${cs?`<span style="color:var(--teal);font-weight:700">CMR ${mesLabel(mesSel)}</span><br>`:''}${y.semDados?(cs?'':'sem dados'):`Paradas <b>${fmtInt(y.qtd)}</b> · <b>${fmt(y.h,1)} h</b><br>${y.top?'Mais parou: <b>'+esc(y.top.k)+'</b>':''}`}</div></div>`; }).join('');
+      const g2=gz(S.nome,cs,y,true), i2=g2.indexOf('<div class="cmp"'), gSvg=i2<0?g2:g2.slice(0,i2), gCmp=i2<0?'':g2.slice(i2);
+      return `<div class="sub ${y.semDados&&!cs?'vazio':''}" title="${cs?'CMR '+mesLabel(mesSel)+' · meta '+fmt(cs.meta*100,2)+'% ('+cs.metaTipo+')':'Disponibilidade calculada pelas paradas'}">${gSvg}
+        <div class="inf"><h4>${esc(S.nome)}</h4>${gCmp}${cs?`<span style="color:var(--teal);font-weight:700">CMR ${mesLabel(mesSel)}</span><br>`:''}${y.semDados?(cs?'':'sem dados'):`Paradas <b>${fmtInt(y.qtd)}</b> · <b>${fmt(y.h,1)} h</b><br>${y.top?'Mais parou: <b>'+esc(y.top.k)+'</b>':''}`}</div></div>`; }).join('');
     const cg=cmrDe(G.nome,null);
     return `<div class="col"><div class="plant ${x.semDados&&!cg?'vazio':''}">
       <h3>${esc(G.nome)}</h3><div class="ar">${G.subs?G.subs.length+' derivações · ':''}${x.n} máquina(s)</div>
-      ${cg? gauge(cg.v??0,false,cg.v==null,'CMR · '+mesLabel(mesSel)+(cg.media?' (média)':'')+(cg.meta!=null?' · meta '+fmt(cg.meta*100,1)+'%':''),corCmr(cg)) : gauge(x.disp,false,x.semDados,'disponibilidade (calc.)')}
+      ${gz('',cg,x,false, cg? 'CMR · '+mesLabel(mesSel)+(cg.media?' (média)':'')+(cg.meta!=null?' · meta '+fmt(cg.meta*100,2)+'%':'') : 'disponibilidade (calc.)')}
       ${[...new Set(cmrTodos.filter(c=>c.extra&&c.grupo===G.nome).map(c=>c.extra))].map(nx=>{ const c=cmrTodos.find(c=>c.extra===nx&&c.grupo===G.nome&&c.mes===mesSel);
         return `<div class="row"><span>${esc(nx)}</span><b>${c?fmt(c.v*100,2)+'%':'—'}</b></div>`; }).join('')}
+      ${cg&&cg.meta!=null?`<div class="row"><span>Meta CMR</span><b title="${esc(cg.metaTipo)}">${fmt(cg.meta*100,2)}%${cg.metaTipo==='média 3 meses'?' ↻':''}</b></div>`:''}
       <div class="row"><span>Paradas</span><b>${fmtInt(x.qtd)}</b></div>
       <div class="row"><span>Horas paradas</span><b>${fmt(x.h,1)} h</b></div>
       <div class="row"><span>Mais parou</span><b>${x.top?esc(x.top.k):'—'}</b></div>
     </div>${subs? (G.faixa?`<div class="subs2">${subs}</div>`:`<div class="subs">${subs}</div>`) :''}</div>`;
   }).join('') + faixas.join('') || '<div class="empty">Nenhuma planta no filtro</div>';
+  salvarHist();
+  renderSaude();
 }
+/* ---------- faixa de saúde geral ---------- */
+function renderSaude(){
+  const mes=$('#fMes').value; $('#secMes').textContent = mes? '· '+mesLabel(mes) : '';
+  const n=resumo.length, c={verde:0,amarelo:0,vermelho:0}; resumo.forEach(r=>c[r.f]=(c[r.f]||0)+1);
+  const ind = n? Math.round((c.verde + c.amarelo*0.5)/n*100) : null;
+  const pior = resumo.filter(r=>r.meta).sort((a,b)=>(b.v/b.meta)-(a.v/a.meta))[0];
+  const nome = r => r.nome===r.area? r.area : `${r.nome} · ${r.area}`;
+  const fInd = ind==null?'':ind>=80?'verde':ind>=60?'amarelo':'vermelho';
+  $('#saude').innerHTML = !n ? `<div class="sd indice" style="grid-column:1/-1"><div class="l">Índice de saúde dos ativos</div><div class="s">Conecte as planilhas para ver a saúde dos ativos.</div></div>` :
+   `<div class="sd indice ${fInd}"><div class="l">Índice de saúde dos ativos</div><div class="v">${ind}%</div>
+      <div class="barra"><i style="width:${c.verde/n*100}%;background:#1f9d55"></i><i style="width:${c.amarelo/n*100}%;background:#e0a100"></i><i style="width:${c.vermelho/n*100}%;background:#d64545"></i></div>
+      <div class="s">${n} ativo(s) monitorado(s) por CMR · verde = 100%, amarelo = 50%</div></div>
+    <div class="sd verde"><div class="l">● Dentro da meta</div><div class="v">${c.verde}</div><div class="s">${resumo.filter(r=>r.f==='verde').slice(0,4).map(nome).join(', ')||'—'}</div></div>
+    <div class="sd amarelo"><div class="l">● Atenção</div><div class="v">${c.amarelo}</div><div class="s">${resumo.filter(r=>r.f==='amarelo').slice(0,4).map(nome).join(', ')||'—'}</div></div>
+    <div class="sd vermelho"><div class="l">● Fora da meta</div><div class="v">${c.vermelho}</div><div class="s">${resumo.filter(r=>r.f==='vermelho').slice(0,4).map(nome).join(', ')||'—'}${c.vermelho>4?' …':''}</div></div>
+    <div class="sd ${pior?pior.f:''}"><div class="l">Ativo mais crítico</div><div class="v" style="font-size:20px">${pior?esc(nome(pior)):'—'}</div>
+      <div class="s">${pior?`CMR ${fmt(pior.v*100,2)}% · meta ${fmt(pior.meta*100,2)}% · ${fmt(pior.v/pior.meta,1)}× a meta`:''}</div></div>`;
+  // indicador "ao vivo" no topo
+  const dot=$('#liveDot'), txt=$('#liveTxt');
+  if (isDemo){ dot.className='dot warn'; txt.textContent='DADOS DE EXEMPLO'; }
+  else if (typeof arqHandles!=='undefined' && arqHandles.length){ dot.className='dot on'; txt.textContent='AO VIVO · ATUALIZA A CADA 15 MIN'; }
+  else { dot.className='dot warn'; txt.textContent='PLANILHAS CARREGADAS'; }
+}
+setInterval(()=>{ const d=new Date(); $('#relogio').textContent=d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'})+' · '+d.toLocaleTimeString('pt-BR'); },1000);
 /* ---------- banco de paradas (mais recentes no topo; novas entram animadas) ---------- */
 const chaveParada = l => [l.area,l.planta,l.maquina,l.ts||'',l.min,l.motivo,l.classif||''].join('|');
 let vistas=null; const novasAte=new Map();
@@ -848,6 +1022,53 @@ function renderBanco(L){
       return `<tr class="${nova?'nova':''}"><td>${dh(l)}${nova?'<span class="badge-n">NOVA</span>':''}</td><td><b>${esc(l.planta)}</b></td><td>${esc(l.area)}</td><td>${esc(l.maquina)}</td><td>${esc(l.classif||'')}</td><td>${esc(l.motivo)}</td><td class="n">${h}</td></tr>`; }).join('')}</table>`;
 }
 $('#bancoBusca').addEventListener('input',()=>renderBanco(filtrado().L));
+
+/* ---------- CMR do ano (2026 → 2030, segue sozinho para os anos seguintes) ---------- */
+const MES_CURTO=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function linhasAreas(){ const out=[]; ESTRUTURA.forEach(G=>{ out.push({g:G.nome,s:null,rot:G.nome}); (G.subs||[]).forEach(S=>out.push({g:G.nome,s:S.nome,rot:'  '+S.nome})); }); return out; }
+function renderAnual(){
+  const sA=$('#anoCmr'), sR=$('#areaCmr');
+  const anoAtual=new Date().getFullYear();
+  const anos=[]; for (let y=2026; y<=Math.max(2030,anoAtual); y++) anos.push(y);
+  const curA=sA.value||String(anoAtual);
+  sA.innerHTML=anos.map(y=>`<option ${String(y)===curA?'selected':''}>${y}</option>`).join('');
+  const LA=linhasAreas(), anoSel=+curA||anoAtual;
+  const temNoAno=r=>MES_CURTO.some((_,i)=>{ const b=cmrBruto(r.g,r.s,`${anoSel}-${String(i+1).padStart(2,'0')}`); return b.tem&&b.v!=null; });
+  let curR=sR.value;
+  if (!areaEscolhida || !curR){ const r=LA.find(temNoAno)||LA[0]; curR=r.g+'|'+(r.s||''); }
+  sR.innerHTML=LA.map(r=>{ const k=r.g+'|'+(r.s||''); return `<option value="${esc(k)}" ${k===curR?'selected':''}>${r.s?'— '+esc(r.s)+' ('+esc(r.g)+')':esc(r.g)}</option>`; }).join('');
+  sA.value=curA; if (!sA.value) sA.value=String(anoAtual); sR.value=curR;
+  const ano=+sA.value||anoAtual, [g,sb]=(sR.value||curR).split('|'); const sub=sb||null;
+  const meses=MES_CURTO.map((_,i)=>`${ano}-${String(i+1).padStart(2,'0')}`);
+  const dados=meses.map(m=>cmrValor(g,sub,m)||{v:null});
+  const el=$('#graficoAno');
+  if (!dados.some(d=>d.v!=null)){ el.innerHTML=`<div class="empty">Sem CMR de ${esc(g)}${sub?' · '+esc(sub):''} em ${ano}. Conecte a planilha de ${ano} dessa área.</div>`; }
+  else {
+    const W=1000,H=320,ml=50,mr=20,mt=24,mb=34, iw=W-ml-mr, ih=H-mt-mb;
+    const max=Math.max(0.06,...dados.map(d=>Math.max(d.v||0,d.meta||0)))*1.15, bw=iw/12, y=v=>mt+ih-(v/max)*ih;
+    let sv=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">`;
+    for (let i=0;i<=4;i++){ const v=max/4*i; sv+=`<line x1="${ml}" x2="${W-mr}" y1="${y(v)}" y2="${y(v)}" stroke="#eef2f6"/><text x="${ml-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="#5f6f80">${fmt(v*100,1)}%</text>`; }
+    dados.forEach((d,i)=>{ const x=ml+i*bw;
+      if (d.v!=null){ const cor=corCmr(d);
+        sv+=`<rect x="${x+bw*0.18}" y="${y(d.v)}" width="${bw*0.64}" height="${mt+ih-y(d.v)}" rx="3" fill="${cor}" data-tip="<b>${MES_CURTO[i]}/${ano}</b><br>CMR ${fmt(d.v*100,2)}%<br>Meta ${fmt((d.meta||0)*100,2)}% (${esc(d.metaTipo||'')})"/>`;
+        sv+=`<text x="${x+bw/2}" y="${y(d.v)-5}" text-anchor="middle" font-size="12" font-weight="700" fill="#0b2a4a">${fmt(d.v*100,2)}%</text>`; }
+      if (d.meta!=null) sv+=`<line x1="${x+bw*0.08}" x2="${x+bw*0.92}" y1="${y(d.meta)}" y2="${y(d.meta)}" stroke="#0b2a4a" stroke-width="2" stroke-dasharray="6 4"/>`;
+      sv+=`<text x="${x+bw/2}" y="${H-12}" text-anchor="middle" font-size="12" fill="#1b2733">${MES_CURTO[i]}</text>`; });
+    const vs=dados.filter(d=>d.v!=null).map(d=>d.v), med=vs.reduce((a,b)=>a+b,0)/vs.length;
+    sv+=`<line x1="${ml}" x2="${W-mr}" y1="${y(med)}" y2="${y(med)}" stroke="#7a4fbf" stroke-width="1.5" stroke-dasharray="2 4"/><text x="${W-mr}" y="${y(med)-5}" text-anchor="end" font-size="11" fill="#7a4fbf" font-weight="700">média ${ano}: ${fmt(med*100,2)}%</text>`;
+    el.innerHTML=sv+'</svg>'; bindTips(el);
+  }
+  // tabela de todas as áreas
+  $('#tabelaAno').innerHTML=`<table><tr><th>Área</th>${MES_CURTO.map(m=>`<th class="n">${m}</th>`).join('')}<th class="n">Média ${ano}</th></tr>`+
+    LA.filter(r=>meses.some(m=>cmrBruto(r.g,r.s,m).tem)).map(r=>{ const vs=[];
+      const tds=meses.map(m=>{ const d=cmrValor(r.g,r.s,m); if(!d||d.v==null) return '<td class="n" style="color:#b9c7d6">—</td>'; vs.push(d.v);
+        return `<td class="n" style="color:${corCmr(d)};font-weight:700" title="meta ${fmt(d.meta*100,2)}%">${fmt(d.v*100,2)}%</td>`; }).join('');
+      const k=r.g+'|'+(r.s||''); const med=vs.length? fmt(vs.reduce((a,b)=>a+b,0)/vs.length*100,2)+'%':'—';
+      return `<tr data-area="${esc(k)}" style="cursor:pointer;${k===(sR.value||curR)?'background:#eef6fb':''}"><td>${r.s?'&nbsp;&nbsp;&nbsp;— '+esc(r.s):'<b>'+esc(r.g)+'</b>'}</td>${tds}<td class="n"><b>${med}</b></td></tr>`; }).join('')+'</table>';
+  document.querySelectorAll('#tabelaAno tr[data-area]').forEach(tr=>tr.onclick=()=>{ areaEscolhida=true; $('#areaCmr').value=tr.dataset.area; renderAnual(); });
+}
+let areaEscolhida=false;
+$('#anoCmr').addEventListener('change',renderAnual); $('#areaCmr').addEventListener('change',()=>{ areaEscolhida=true; renderAnual(); });
 
 function renderPareto(L){
   const val = metric==='horas'? l=>l.min/60 : ()=>1;
