@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paradas de Máquina CMR · Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#0b2a4a; --navy2:#123a63; --teal:#00a19a; --teal-l:#d9f2f1;
+    --bg:#f3f6f9; --card:#fff; --ink:#1b2733; --muted:#5f6f80; --line:#e2e8ef;
+    --ok:#1f9d55; --warn:#e0a100; --bad:#d64545;
+    --c1:#0b5ea8; --c2:#00a19a; --c3:#f0a500; --c4:#7a4fbf; --c5:#d64545; --c6:#5aa9e6; --c7:#8fbf3f; --c8:#c2569b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px}
+  header{background:linear-gradient(90deg,var(--navy),var(--navy2));color:#fff;padding:14px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{background:#fff;color:var(--navy);font-weight:800;font-size:20px;letter-spacing:1px;padding:4px 10px;border-radius:6px}
+  .brand small{display:block;opacity:.75;font-size:11px}
+  .brand h1{margin:0;font-size:18px;font-weight:600}
+  .hdr-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  button,.btn{font:inherit;border:1px solid transparent;border-radius:6px;padding:7px 12px;cursor:pointer;background:var(--teal);color:#fff;font-weight:600}
+  button.ghost{background:transparent;border-color:rgba(255,255,255,.5);color:#fff}
+  button.light{background:#fff;color:var(--navy);border-color:var(--line)}
+  button:hover{filter:brightness(1.08)}
+  nav.tabs{display:flex;gap:2px;padding:0 24px;background:var(--navy2)}
+  nav.tabs button{background:transparent;color:#cfe0f0;border-radius:6px 6px 0 0;padding:10px 18px;font-weight:600}
+  nav.tabs button.active{background:var(--bg);color:var(--navy)}
+  .filters{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:14px 24px 0}
+  .filters label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;gap:4px}
+  .filters input,.filters select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;min-width:140px}
+  .status{font-size:12px;color:var(--muted);margin-left:auto}
+  main{padding:14px 24px 30px}
+  .tab{display:none}.tab.active{display:block}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:14px}
+  .kpi{background:var(--card);border-radius:10px;padding:14px 16px;border-left:4px solid var(--teal);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .kpi .l{font-size:11px;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .kpi .v{font-size:26px;font-weight:700;color:var(--navy);margin-top:4px}
+  .kpi .s{font-size:12px;color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--card);border-radius:10px;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .card h2{margin:0 0 8px;font-size:14px;color:var(--navy);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+  .card h2 span{font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0}
+  .donut-wrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .donut-wrap svg{flex:1 1 280px;max-width:420px}
+  .legend{flex:1 1 180px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+  .legend div{display:flex;align-items:center;gap:8px}
+  .legend i{width:12px;height:12px;border-radius:3px;flex:none}
+  .legend b{margin-left:auto;font-variant-numeric:tabular-nums}
+  .plants{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:8px}
+  .subs{display:flex;flex-direction:column;gap:6px;padding-left:12px;border-left:2px solid #c9d6e3;margin-left:10px}
+  .sub{background:var(--card);border-radius:8px;padding:8px 10px;box-shadow:0 1px 2px rgba(0,0,0,.05);display:flex;align-items:center;gap:8px;border-left:3px solid var(--teal);position:relative}
+  .sub::before{content:'';position:absolute;left:-15px;top:50%;width:12px;border-top:2px solid #c9d6e3}
+  .sub svg{width:96px;flex:none}
+  .sub .inf{flex:1;font-size:11px;color:var(--muted);line-height:1.45;min-width:0}
+  .sub .inf h4{margin:0 0 2px;font-size:13px;color:var(--navy)}
+  .sub .inf b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .plant.vazio,.sub.vazio,.mini.vazio{opacity:.55}
+  .faixa{grid-column:1/-1;background:var(--card);border-radius:10px;padding:10px 14px;box-shadow:0 1px 2px rgba(0,0,0,.05);border-top:3px solid var(--teal)}
+  .faixa h3{margin:0 0 8px;font-size:14px;color:var(--navy)}
+  .faixa h3 span{font-weight:400;color:var(--muted);font-size:12px}
+  .faixa .itens{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+  .mini{border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:center;font-size:11px;color:var(--muted)}
+  .mini h4{margin:0;font-size:13px;color:var(--navy)}
+  .mini svg{max-width:96px!important;margin:0 auto!important}
+  .subs2{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding-top:8px;border-top:2px solid #c9d6e3;margin:0 4px;position:relative}
+  .subs2::before{content:'';position:absolute;left:50%;top:-10px;height:8px;border-left:2px solid #c9d6e3}
+  .subs2 .mini{background:var(--card);border:0;border-top:3px solid var(--teal);box-shadow:0 1px 2px rgba(0,0,0,.05);padding:5px 4px;line-height:1.3}
+  .subs2 .mini h4{font-size:12px}
+  .mini b{color:var(--ink)}
+  .plant{background:var(--card);border-radius:10px;padding:12px 14px;box-shadow:0 1px 2px rgba(0,0,0,.05);border-top:3px solid var(--navy)}
+  .plant h3{margin:0;font-size:14px;color:var(--navy)}
+  .plant .ar{font-size:11px;color:var(--muted)}
+  .plant .row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-bottom:1px dashed var(--line)}
+  .plant .row:last-child{border:0}
+  .plant .row b{font-variant-numeric:tabular-nums}
+  .sec-title{font-size:14px;color:var(--navy);font-weight:700;text-transform:uppercase;margin:6px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:var(--navy);color:#fff;text-align:left;padding:7px 8px;font-weight:600;position:sticky;top:0}
+  td{padding:6px 8px;border-bottom:1px solid var(--line)}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  tr:hover td{background:#f6fafc}
+  .cls{display:inline-block;width:22px;text-align:center;border-radius:4px;color:#fff;font-weight:700;font-size:11px}
+  .cA{background:var(--bad)}.cB{background:var(--warn)}.cC{background:var(--ok)}
+  .tblbox{max-height:460px;overflow:auto;border-radius:8px;border:1px solid var(--line)}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .seg button{background:#fff;color:var(--navy);border-radius:0;font-weight:600}
+  .seg button.on{background:var(--navy);color:#fff}
+  .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  #tip{position:fixed;pointer-events:none;background:var(--navy);color:#fff;padding:6px 9px;border-radius:6px;font-size:12px;opacity:0;transition:opacity .1s;z-index:9;white-space:nowrap}
+  .empty{padding:40px;text-align:center;color:var(--muted)}
+  .drop{border:2px dashed #b9c7d6;border-radius:10px;padding:22px;text-align:center;color:var(--muted);background:#fff;margin-bottom:14px}
+  .drop.hover{border-color:var(--teal);background:var(--teal-l)}
+  .pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;background:var(--teal-l);color:#00706b;font-weight:600;margin:1px}
+  .pill.miss{background:#fde8e8;color:#a33}
+  #btnLimpar.on{background:var(--warn);color:#000;border-color:var(--warn)}
+  .demo-flag{background:var(--warn);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+  .ms{position:relative}
+  .ms>button{background:#fff;color:var(--ink);border:1px solid var(--line);font-weight:400;min-width:200px;text-align:left;padding:6px 8px}
+  .ms>button::after{content:'▾';float:right;color:var(--muted)}
+  .ms .pn{display:none;position:absolute;top:100%;left:0;z-index:20;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.12);padding:8px;min-width:260px;max-height:340px;overflow:auto;text-transform:none;font-weight:400;font-size:13px;color:var(--ink)}
+  .ms.open .pn{display:block}
+  .ms .pn label{flex-direction:row;align-items:center;gap:8px;text-transform:none;font-size:13px;color:var(--ink);font-weight:400;padding:4px 2px;cursor:pointer}
+  .ms .pn .acts{display:flex;gap:6px;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:4px}
+  .ms .pn .acts button{padding:3px 8px;font-size:12px}
+  .ms .pn small{color:var(--muted);margin-left:auto}
+  #banco tr.nova td{animation:entra .7s ease-out, brilho 4s ease-out}
+  #banco tr.nova td:first-child{border-left:4px solid var(--teal)}
+  @keyframes entra{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+  @keyframes brilho{0%,40%{background:var(--teal-l)}100%{background:transparent}}
+  .badge-n{background:var(--teal);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:6px}
+  .modal{display:none;position:fixed;inset:0;background:rgba(11,42,74,.45);z-index:50;align-items:flex-start;justify-content:center;overflow:auto;padding:30px 12px}
+  .modal.open{display:flex}
+  .mbox{background:#fff;border-radius:12px;max-width:1100px;width:100%;padding:18px 22px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  .mbox h2{margin:0 0 12px;color:var(--navy);font-size:17px}
+  .mbox fieldset{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:10px 14px}
+  .mbox legend{font-weight:700;color:var(--navy);padding:0 6px}
+  .frow{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0}
+  .frow label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);font-weight:600;gap:3px}
+  .frow select,.frow input{font:inherit;font-size:13px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;min-width:170px;max-width:260px}
+  .frow input[type=number]{min-width:80px;width:80px}
+  .prev{overflow:auto;max-height:260px;border:1px solid var(--line);border-radius:8px;margin-top:8px}
+  .prev table{font-size:11px}
+  .prev th{background:#eef2f6;color:var(--muted);font-weight:600;position:sticky;top:0}
+  .prev td{white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis;padding:3px 6px}
+  .prev td.rn{background:#eef2f6;color:var(--muted);cursor:pointer;text-align:right;font-weight:600}
+  .prev td.rn:hover{background:var(--teal-l)}
+  .prev tr.hdr td{background:#fff4cc;font-weight:700}
+  .prev td.sel{background:var(--teal-l)}
+  .prev tr.hdr td.sel{background:#bfe9e6}
+  .mact{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  .hint{font-size:12px;color:var(--muted);margin:2px 0 0}
+  code{background:#eef2f6;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">ANH</div>
+    <div><h1>Paradas de Máquina · Plantas CMR</h1><small>a dsm-firmenich company · Manutenção Mairinque</small></div>
+    <span id="demoFlag" class="demo-flag" style="display:none">DADOS DE EXEMPLO</span>
+  </div>
+  <div class="hdr-actions">
+    <button id="btnConectar" title="Escolha as planilhas de cada área (Chrome/Edge). Elas são relidas a cada 15 min.">📄 Selecionar planilhas</button>
+    <button id="btnAtualizar" class="ghost" title="Relê agora as planilhas selecionadas">⟳ Atualizar</button>
+    <input type="file" id="inpArq" accept=".xlsx,.xlsm,.xls,.csv" multiple hidden>
+  </div>
+</header>
+<nav class="tabs">
+  <button data-tab="tPrincipal" class="active">Principal</button>
+  <button data-tab="tPareto">Pareto de Máquinas</button>
+  <button data-tab="tFontes">Fontes de Dados</button>
+</nav>
+
+<div class="filters">
+  <label>De <input type="date" id="fIni"></label>
+  <label>Até <input type="date" id="fFim"></label>
+  <label>Área <select id="fArea"></select></label>
+  <label id="lblMes" style="display:none">Mês do CMR <select id="fMes"></select></label>
+  <label>Planta <select id="fPlanta"></select></label>
+  <label>Classificação <div class="ms" id="msClass"><button type="button" id="msBtn">Todas</button><div class="pn" id="msPn"></div></div></label>
+  <label>Horas operacionais/dia <input type="number" id="fHoras" value="24" min="1" max="24" style="min-width:90px"></label>
+  <button class="light" id="btnLimpar" title="Volta para o mês atual até hoje e limpa os filtros">↺ Hoje</button>
+  <span class="status" id="status"></span>
+</div>
+
+<main>
+  <!-- PRINCIPAL -->
+  <section class="tab active" id="tPrincipal">
+    <div class="sec-title">Disponibilidade por planta CMR</div>
+    <div class="plants" id="plants" style="margin-bottom:16px"></div>
+    <div class="card">
+      <div class="toolbar" style="margin-bottom:8px">
+        <h2 style="margin:0">Banco de paradas <span id="bancoInfo"></span></h2>
+        <input type="search" id="bancoBusca" placeholder="Buscar máquina, motivo..." style="margin-left:auto;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;min-width:240px">
+      </div>
+      <div class="tblbox" id="banco" style="max-height:520px"></div>
+    </div>
+  </section>
+
+  <!-- PARETO -->
+  <section class="tab" id="tPareto">
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0">Pareto · máquinas que mais pararam</h2>
+        <div class="seg" id="segMetric">
+          <button data-m="horas" class="on">Horas paradas</button>
+          <button data-m="qtd">Nº de paradas</button>
+        </div>
+        <label style="font-size:12px;color:var(--muted)">Mostrar
+          <select id="topN"><option>10</option><option selected>15</option><option>20</option><option>30</option><option value="999">Todas</option></select>
+        </label>
+      </div>
+      <div id="pareto"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Ranking <span>· classe A = até 80% acumulado, B = até 95%, C = restante</span></h2>
+      <div class="tblbox" id="paretoTbl"></div>
+    </div>
+  </section>
+
+  <!-- FONTES -->
+  <section class="tab" id="tFontes">
+    <div class="drop" id="drop">Arraste aqui as planilhas de cada área (.xlsx, .xls, .csv) — mas para atualizar sozinho a cada 15 min use <b>📄 Selecionar planilhas</b> (Chrome/Edge).</div>
+    <div class="card">
+      <h2>Planilhas carregadas</h2>
+      <div id="fontes"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Formato esperado</h2>
+      <p>Uma linha por parada. Os nomes das colunas são reconhecidos automaticamente (com ou sem acento, em qualquer ordem):</p>
+      <table style="max-width:820px">
+        <tr><th>Campo</th><th>Nomes aceitos</th><th>Obrigatório</th></tr>
+        <tr><td>Data</td><td>Data, Data Parada, Dia</td><td>Sim (ou Início)</td></tr>
+        <tr><td>Área</td><td>Área, Setor</td><td>Não — se faltar, usa o nome do arquivo</td></tr>
+        <tr><td>Planta</td><td>Planta, Linha, Unidade</td><td>Recomendado</td></tr>
+        <tr><td>Máquina</td><td>Máquina, Equipamento, TAG, Ativo</td><td>Sim</td></tr>
+        <tr><td>Tempo parado</td><td>Tempo Parado (min), Duração, Horas, Downtime — se tiver "h"/"hora" no nome, lê em horas; senão, minutos; aceita também <code>hh:mm</code></td><td>Sim (ou Início + Fim)</td></tr>
+        <tr><td>Início / Fim</td><td>Início, Fim, Término (data e hora)</td><td>Opcional</td></tr>
+        <tr><td>Classificação</td><td>Classificação, Classe</td><td>Recomendado — usada no filtro de seleção</td></tr>
+        <tr><td>Motivo</td><td>Motivo, Causa, Falha, Descrição</td><td>Opcional</td></tr>
+      </table>
+      <p style="margin-top:12px"><button class="light" id="btnModelo">⬇ Baixar planilha modelo</button></p>
+    </div>
+  </section>
+</main>
+<div id="tip"></div>
+<div class="modal" id="cfgModal"><div class="mbox" id="cfgBox"></div></div>
+
+<script>
+/* ================= ESTADO ================= */
+const PAL = ['#0b5ea8','#00a19a','#f0a500','#7a4fbf','#d64545','#5aa9e6','#8fbf3f','#c2569b','#6b7c8f','#2f4b7c'];
+let fontes = [];          // {nome, area, linhas:[], colunas:{}, origem}
+let arqHandles = [];   // planilhas selecionadas (relidas a cada 15 min)
+let isDemo = false;
+let metric = 'horas';
+
+const $ = s => document.querySelector(s);
+const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const fmt = (n,d=1) => Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtInt = n => Number(n).toLocaleString('pt-BR');
+const esc = s => String(s ?? '').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ================= LEITURA DAS PLANILHAS ================= */
+const SIN = {
+  inicio:['inicio','hora inicio','inicio parada','inicio da parada','data/hora inicio','data hora inicio'],
+  fim:['fim','termino','hora fim','fim parada','fim da parada','data/hora fim','data hora fim'],
+  data:['data','date','dt','data parada','data da parada','dia'],
+  area:['area','setor','departamento'],
+  planta:['planta','linha','unidade','plant','planta cmr','linha cmr','misturadora','reator','derivacao'],
+  maquina:['maquina','equipamento','equip','tag','ativo','maq','maquina/equipamento'],
+  duracao:['tempo parado','tempo parado (min)','tempo parado (h)','duracao','duracao (min)','duracao (h)','tempo','downtime','minutos','min','horas','tempo de parada'],
+  motivo:['motivo','causa','descricao','falha','ocorrencia','motivo da parada'],
+  classif:['classificacao','classificacao da parada','classificacao parada','class','classe'],
+  tipo:['tipo','categoria','natureza']
+};
+function mapear(headers){
+  const H = headers.map(norm), map = {}, usado = new Set();
+  for (const k in SIN) { const i = H.findIndex((h,j)=>!usado.has(j) && SIN[k].includes(h)); if(i>=0){map[k]=i;usado.add(i);} }
+  for (const k in SIN) { if(map[k]!=null) continue;
+    const i = H.findIndex((h,j)=>!usado.has(j) && h && SIN[k].some(s=>s.length>3 && h.includes(s)));
+    if(i>=0){map[k]=i;usado.add(i);} }
+  if (map.duracao!=null){ const h=H[map.duracao]; map._horas = /\(h\)|\bh\b|hora/.test(h) && !/min/.test(h); }
+  return map;
+}
+function toDate(v){
+  if (v==null || v==='') return null;
+  if (v instanceof Date) return isNaN(v)?null:v;
+  if (typeof v==='number'){ const d = XLSX.SSF.parse_date_code(v); return d? new Date(d.y,d.m-1,d.d,d.H,d.M,d.S):null; }
+  const s=String(v).trim(); let m;
+  if ((m=s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/))){
+    let y=+m[3]; if(y<100) y+=2000; return new Date(y,m[2]-1,+m[1],+(m[4]||0),+(m[5]||0)); }
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+function toMin(v, emHoras){
+  if (v==null || v==='') return null;
+  if (v instanceof Date) return v.getHours()*60+v.getMinutes();
+  if (typeof v==='number') return emHoras ? v*60 : (v<1 && v>0 && !emHoras ? v*1440 : v);
+  const s=String(v).trim(); let m;
+  if ((m=s.match(/^(\d+):(\d{2})(?::\d{2})?$/))) return (+m[1])*60+(+m[2]);
+  const n=parseFloat(s.replace(',','.')); if(isNaN(n)) return null;
+  return emHoras? n*60 : n;
+}
+const wbCache = new Map();
+let CONFIG = {}; try{ CONFIG = JSON.parse(localStorage.getItem('dashCMR_cfg')||'{}')||{}; }catch(e){}
+function salvarCfg(){ try{ localStorage.setItem('dashCMR_cfg', JSON.stringify(CONFIG)); }catch(e){} }
+// lê só a área com dados de verdade (algumas abas dizem ter 1 milhão de linhas / 16 mil colunas) e guarda em cache
+const aoaMemo = new WeakMap();
+function aoaDe(wb, aba){
+  const ws=wb.Sheets[aba]; if(!ws) return [];
+  if (aoaMemo.has(ws)) return aoaMemo.get(ws);
+  let maxR=-1, maxC=-1;
+  for (const k in ws){ if(k[0]==='!') continue; const a=XLSX.utils.decode_cell(k); if(a.r>maxR) maxR=a.r; if(a.c>maxC) maxC=a.c; }
+  const aoa = maxR<0? [] : XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null,blankrows:true,
+    range:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.min(maxR,60000),c:Math.min(maxC,200)}})});
+  aoaMemo.set(ws,aoa); return aoa;
+}
+// abre a pasta de trabalho sem processar todas as abas: cada aba só é lida quando for usada
+function abrirWb(buf){
+  const nomes = XLSX.read(buf,{type:'array',bookSheets:true}).SheetNames;
+  const lidas = {};
+  const Sheets = new Proxy(lidas,{
+    get(t,n){ if(typeof n!=='string') return undefined; if(n in t) return t[n]; if(!nomes.includes(n)) return undefined;
+      t[n] = XLSX.read(buf,{type:'array',cellDates:true,sheets:n}).Sheets[n] || null; return t[n]; },
+    has(t,n){ return nomes.includes(n); }
+  });
+  return {SheetNames:nomes, Sheets};
+}
+const colLetra = i => { let s='',n=i+1; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26);} return s; };
+const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const MESES_EN={feb:2,apr:4,may:5,aug:8,sep:9,oct:10,dec:12};
+const mesLabel = m => { if(!m) return ''; const [y,mm]=m.split('-'); return MESES[+mm-1]+'/'+y.slice(2); };
+function parseMes(v, ano){
+  if (v==null || v==='') return null;
+  const k=(y,m)=> (m>=1&&m<=12&&y>1990&&y<2100)? `${y}-${String(m).padStart(2,'0')}` : null;
+  if (v instanceof Date) return isNaN(v)?null:k(v.getFullYear(),v.getMonth()+1);
+  if (typeof v==='number'){ if(v>=1&&v<=12&&Number.isInteger(v)) return k(ano,v); if(v>20000){ const d=XLSX.SSF.parse_date_code(v); return d?k(d.y,d.m):null; } return null; }
+  const t=norm(v); let m;
+  if ((m=t.match(/^(\d{1,2})[\/\-.](\d{2,4})$/))) { let y=+m[2]; if(y<100) y+=2000; return k(y,+m[1]); }
+  if ((m=t.match(/^(\d{4})[\/\-.](\d{1,2})/))) return k(+m[1],+m[2]);
+  if ((m=t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/))) { let y=+m[3]; if(y<100) y+=2000; return k(y,+m[2]); }
+  const nome=t.match(/[a-z]{3,}/); if(!nome) return null;
+  let mi=MESES.indexOf(nome[0].slice(0,3))+1; if(!mi) mi=MESES_EN[nome[0].slice(0,3)]||0; if(!mi) return null;
+  const ym=t.match(/(\d{4}|\d{2})\s*$/); let y=ym?+ym[1]:ano; if(y<100) y+=2000;
+  return k(y,mi);
+}
+function parsePct(v){
+  if (v==null || v==='') return null;
+  if (typeof v==='number') return isNaN(v)?null:(Math.abs(v)<=1.5? v : v/100);
+  const t=String(v).trim(), pc=t.includes('%'); const n=parseFloat(t.replace('%','').replace(/\./g, t.includes(',')?'':'.').replace(',','.'));
+  if (isNaN(n)) return null; return (pc||Math.abs(n)>1.5)? n/100 : n;
+}
+function lerLinhas(aoa, hi, map, areaPadrao, areaForcada){
+  const linhas=[];
+  for (let r=hi+1;r<aoa.length;r++){
+    const row=aoa[r]; if(!row) continue;
+    const g=k=>map[k]!=null?row[map[k]]:null;
+    const maq=g('maquina'); if(maq==null||String(maq).trim()==='') continue;
+    // hora sozinha (sem data) vem como 30/12/1899: junta com a data da parada
+    const soHora=d=>d && d.getFullYear()<1901;
+    const juntar=(d,h)=>{ if(!h) return null; if(!soHora(h)) return h; return d? new Date(d.getFullYear(),d.getMonth(),d.getDate(),h.getHours(),h.getMinutes()) : null; };
+    let data=toDate(g('data')); if (soHora(data)) data=null;
+    const ini=juntar(data,toDate(g('inicio')));
+    let fim=juntar(toDate(g('datafim'))||data,toDate(g('fim')));
+    if (ini && fim && fim<ini && !map.datafim) fim=new Date(+fim+864e5);
+    if (!data) data=ini;
+    let min=toMin(g('duracao'), map._horas);
+    if ((min==null||isNaN(min)) && ini && fim) min=(fim-ini)/60000;
+    if (min==null||isNaN(min)||min<0) continue;
+    linhas.push({
+      data: data? new Date(data.getFullYear(),data.getMonth(),data.getDate()):null,
+      ts: (ini||data)? +(ini||data) : null,
+      area: areaForcada || String(g('area')??'').trim() || areaPadrao,
+      planta: String(g('planta')??'').trim() || '(sem planta)',
+      maquina: String(maq).trim(),
+      min,
+      motivo: String(g('motivo')??'').trim() || '(não informado)',
+      tipo: String(g('tipo')??'').trim(),
+      classif: String(g('classif')??'').trim() || '(sem classificação)'
+    });
+  }
+  return linhas;
+}
+function autoParadas(wb){
+  for (const sn of wb.SheetNames){
+    const aoa=aoaDe(wb,sn);
+    for (let i=0;i<Math.min(15,aoa.length);i++){ const mp=mapear(aoa[i]||[]); if(mp.maquina!=null && (mp.duracao!=null||mp.inicio!=null)) return {aba:sn,hi:i,map:mp,aoa}; }
+  }
+  return null;
+}
+/* ================= CONFIGURAÇÕES PRONTAS (por área) =================
+   Reconhecidas pelo nome do arquivo. Colunas procuradas pelo TÍTULO (não pela letra),
+   então continuam certas se alguém inserir colunas. Se você salvar um ⚙ Configurar, ele tem prioridade. */
+const PRESETS = [
+  { id:'zootecnica', match:['zootecnica','zootec'], grupo:'Zootécnica',
+    cmr:{ aba:'Performance', mes:'mes', cmr:'cmr', modo:'blocos', colGeral:'AA', sentido:'menor' },
+    par:{ aba:'(Paradas)', unid:'min', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          planta:'misturadora', maquina:'equipamento', duracao:'duracao', classif:'classificacao', motivo:'motivo' } } },
+  { id:'polivitaminicos', match:['polivitam','polivit'], grupo:'Polivitamínicos',
+    cmr:{ aba:'Performance Mensal', mes:'mes', cmr:'cmr', sentido:'menor' },
+    par:{ aba:'Paradas Totais', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          maquina:'equipamento', duracao:'duracao2', classif:'classificacao', motivo:'motivo' } } },
+  { id:'fosfato', match:['dcp','fosfato'], grupo:'Fosfato',
+    cmr:{ aba:'Performance Mensal', mes:'mes', cmr:'cmr', sentido:'menor', extras:{ 'CMR reatores':'cmr reatores' } },
+    // obs.: a coluna "DURAÇÃO (MIN)" desta planilha está em HORAS (1h10 = 1,17)
+    par:{ aba:'Paradas - Geral', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          maquina:'falha nivel 1', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que' } },
+    par2:{ aba:'Paradas - Reatores', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
+          planta:'reator', maquina:'equipamento', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que' } } }
+];
+const letraIdx = L => [...String(L).toUpperCase()].reduce((n,ch)=>n*26+(ch.charCodeAt(0)-64),0)-1;
+const kAba = t => norm(t).replace(/[^a-z0-9]/g,'');
+const acharAba = (wb,nome) => wb.SheetNames.find(n=>kAba(n)===kAba(nome));
+function acharCol(H, nome){ const h=(H||[]).map(v=>norm(v).replace(/\s+/g,' ')); const n=norm(nome);
+  let i=h.indexOf(n); if(i<0) i=h.findIndex(x=>x.startsWith(n)); return i; }
+function acharHdr(aoa, nomes){ for (let i=0;i<Math.min(120,aoa.length);i++){ if(nomes.every(n=>acharCol(aoa[i],n)>=0)) return i; } return -1; }
+function presetPara(wb, nome){
+  const base=chave(nome.replace(/\.[^.]+$/,''));
+  const P=PRESETS.find(p=>p.match.some(m=>base.includes(chave(m)))); if(!P) return null;
+  const cfg={grupo:P.grupo, _preset:P.id};
+  if (P.cmr){ const aba=acharAba(wb,P.cmr.aba);
+    if (aba){ const aoa=aoaDe(wb,aba), hi=acharHdr(aoa,[P.cmr.mes,P.cmr.cmr]);
+      if (hi>=0){ const H=aoa[hi];
+        cfg.cmr={aba,hdr:hi+1,colMes:acharCol(H,P.cmr.mes),alvos:{_geral:acharCol(H,P.cmr.cmr)},modo:P.cmr.modo||'tabela',meta:P.cmr.meta??'',sentido:P.cmr.sentido||'menor'};
+        if (P.cmr.colGeral) cfg.cmr.colGeral=letraIdx(P.cmr.colGeral);
+        if (P.cmr.extras){ cfg.cmr.extras={}; for (const [k,v] of Object.entries(P.cmr.extras)){ const j=acharCol(H,v); if(j>=0) cfg.cmr.extras[k]=j; } }
+      } } }
+  for (const key of ['par','par2']){ const Q=P[key]; if(!Q) continue; const aba=acharAba(wb,Q.aba); if(!aba) continue;
+    const aoa=aoaDe(wb,aba), hi=acharHdr(aoa,[Q.cols.maquina,Q.cols.duracao]); if(hi<0) continue;
+    cfg[key]={aba,hdr:hi+1,unid:Q.unid||'min',cols:{}};
+    for (const [k,v] of Object.entries(Q.cols)){ const j=acharCol(aoa[hi],v); if(j>=0) cfg[key].cols[k]=j; } }
+  return cfg;
+}
+function lerWorkbook(wb, nomeArq){
+  wbCache.set(nomeArq, wb);
+  if (CONFIG[nomeArq]) return lerComConfig(wb, nomeArq, CONFIG[nomeArq]);
+  const pre=presetPara(wb, nomeArq);
+  if (pre) return lerComConfig(wb, nomeArq, pre);
+  const areaArq = nomeArq.replace(/\.[^.]+$/,'');
+  const a=autoParadas(wb); let linhas=[], colunas={};
+  if (a){
+    linhas=lerLinhas(a.aoa,a.hi,a.map,areaArq,null);
+    colunas=Object.fromEntries(Object.entries(a.map).filter(([k])=>k[0]!=='_').map(([k,i])=>[k,a.aoa[a.hi][i]]));
+  }
+  return {nome:nomeArq, area:areaArq, linhas, colunas, cmr:[]};
+}
+// tabela de CMR repetida em blocos (um bloco por derivação, um abaixo do outro)
+// tabela de CMR repetida em blocos (um bloco por derivação + bloco geral), um abaixo do outro
+const ehMes = v => { const t=norm(v); return t==='mes' || t==='mes/ano' || t==='mes ano'; };
+function cabecalhosMes(aoa){ const hs=[]; aoa.forEach((r,i)=>{ const j=(r||[]).findIndex(ehMes); if(j>=0) hs.push({i,j}); }); return hs; }
+function blocosCMR(aoa, colMes, colCmr, nomeCmr, G){
+  const heads=cabecalhosMes(aoa), subs=(G&&G.subs)||[];
+  const res=heads.map((hd,bi)=>{
+    const h=hd.i, fim=heads[bi+1]?heads[bi+1].i:aoa.length, H=(aoa[h]||[]).map(norm);
+    let c=nomeCmr? H.indexOf(nomeCmr) : -1; if(c<0 && colCmr>=0) c=colCmr+(hd.j-colMes);
+    let sub=null, rotulo='', achou=false;
+    for (let r=Math.max(0,h-1); r<fim && !achou; r++){ const row=aoa[r]||[];
+      for (let j=0;j<hd.j;j++){ const v=row[j]; if(typeof v!=='string'||!v.trim()) continue;
+        const S=subs.find(S=>bate(v,S.alias)); if(S){ sub=S.nome; rotulo=v.trim(); achou=true; break; }
+        if (/geral|total|consolid/.test(norm(v)) || (G&&bate(v,G.alias))){ sub=null; rotulo=v.trim(); achou=true; break; } } }
+    return {h,j:hd.j,fim,c,sub,rotulo,achou};
+  });
+  // blocos sem rótulo: derivações pela ordem; se sobrar um bloco no fim, ele é o geral
+  const usados=new Set(res.filter(b=>b.achou&&b.sub).map(b=>b.sub)); const livres=subs.map(S=>S.nome).filter(n=>!usados.has(n));
+  const semRot=res.filter(b=>!b.achou);
+  semRot.forEach((b,k)=>{
+    if (k===semRot.length-1 && semRot.length>livres.length){ b.sub=null; b.rotulo='(último bloco = geral)'; }
+    else if (livres.length){ b.sub=livres.shift(); b.rotulo='(pela ordem do bloco)'; }
+    else { b.sub=null; b.rotulo='(geral)'; }
+  });
+  return res;
+}
+function lerComConfig(wb, nome, cfg){
+  const areaArq=nome.replace(/\.[^.]+$/,''); const ano=+((nome.match(/20\d\d/)||[new Date().getFullYear()])[0]);
+  let linhas=[], colunas={}, cmr=[], linhasDeriv=[];
+  const lerPar=(P,cols)=>{
+    if (!(P && P.aba && wb.Sheets[P.aba])) return [];
+    const aoa=aoaDe(wb,P.aba), hi=Math.max(0,(P.hdr||1)-1), map={_horas:P.unid==='h'};
+    for (const [k,v] of Object.entries(P.cols||{})) if(v!==''&&v!=null) map[k]=+v;
+    if (cols) for (const [k,v] of Object.entries(P.cols||{})) if(v!==''&&v!=null) cols[k]=(aoa[hi]||[])[v] ?? ('Coluna '+colLetra(+v));
+    return lerLinhas(aoa,hi,map,areaArq,cfg.grupo||null);
+  };
+  linhas=lerPar(cfg.par,colunas);
+  if (cfg.grupo && cfg.par && cfg.par.aba) colunas.area='Definida: '+cfg.grupo;
+  linhasDeriv=lerPar(cfg.par2,null);   // paradas por derivação (ex.: por reator) — só para os cards das derivações
+  const C=cfg.cmr;
+  const meta = (C && C.meta!==''&&C.meta!=null && !isNaN(C.meta))? C.meta/100 : null, sentido=(C&&C.sentido)||'maior';
+  // área do CMR: a escolhida; senão, pelo nome do arquivo
+  const grupoCmr = cfg.grupo || (ESTRUTURA.find(G=>bate(areaArq,G.alias))||{}).nome || areaArq;
+  const Gc = ESTRUTURA.find(x=>x.nome===grupoCmr);
+  let modoBlocos = C && C.modo==='blocos' && !!(Gc && Gc.subs);
+  if (C && !modoBlocos && Gc && Gc.subs && C.aba && wb.Sheets[C.aba] && C.colMes!==''&&C.colMes!=null){
+    if (cabecalhosMes(aoaDe(wb,C.aba)).length>1) modoBlocos=true;   // tabela repetida por derivação
+  }
+  // coluna CMR: a do campo geral; se estiver vazia, a primeira derivação preenchida
+  const colCmrBloco = C && C.alvos ? [C.alvos._geral, ...Object.values(C.alvos)].find(v=>v!==''&&v!=null) : null;
+  if (modoBlocos && C.aba && wb.Sheets[C.aba] && C.colMes!==''&&C.colMes!=null && colCmrBloco!=null){
+    const aoa=aoaDe(wb,C.aba), G=Gc;
+    const nomeCmr=norm((aoa[(C.hdr||1)-1]||[])[+colCmrBloco]);
+    for (const b of blocosCMR(aoa,+C.colMes,+colCmrBloco,nomeCmr,G)){
+      if (!b.sub && C.colGeral!==''&&C.colGeral!=null) b.c=+C.colGeral;   // coluna própria do bloco geral
+      let comecou=false;
+      for (let r=b.h+1;r<b.fim;r++){ const row=aoa[r]||[];
+        if (comecou && !row.some(v=>v!=null&&String(v).trim()!=='')) break;   // linha vazia = fim do bloco
+        const mes=parseMes(row[b.j],ano); if(!mes) continue; comecou=true;
+        const v=parsePct(row[b.c]); if(v==null) continue;
+        cmr.push({grupo:grupoCmr, sub:b.sub, mes, v, meta, sentido}); }
+    }
+  } else if (C && C.aba && wb.Sheets[C.aba] && C.colMes!==''&&C.colMes!=null){
+    const aoa=aoaDe(wb,C.aba);
+    let comecou=false;
+    for (let r=Math.max(1,C.hdr||1); r<aoa.length; r++){
+      const row=aoa[r]||[];
+      if (comecou && !row.some(v=>v!=null&&String(v).trim()!=='')) break;   // linha vazia = fim da tabela
+      const mes=parseMes(row[+C.colMes],ano); if(!mes) continue; comecou=true;
+      for (const [alvo,col] of Object.entries(C.alvos||{})){
+        if (col===''||col==null) continue; const v=parsePct(row[+col]); if(v==null) continue;
+        cmr.push({grupo:grupoCmr, sub:alvo==='_geral'?null:alvo, mes, v, meta, sentido});
+      }
+      for (const [nomeX,col] of Object.entries(C.extras||{})){   // indicadores extras da mesma tabela (ex.: CMR reatores)
+        const v=parsePct(row[+col]); if(v!=null) cmr.push({grupo:grupoCmr, sub:null, extra:nomeX, mes, v});
+      }
+    }
+  }
+  return {nome, area:cfg.grupo||areaArq, linhas, colunas, cmr, linhasDeriv, manual:!cfg._preset, preset:!!cfg._preset};
+}
+async function lerArquivo(file, origem){
+  const buf = await file.arrayBuffer();
+  const wb = abrirWb(buf);
+  const f = lerWorkbook(wb, file.name); f.origem=origem; f.data=new Date(file.lastModified);
+  return f;
+}
+async function adicionarArquivos(files, origem='arquivo'){
+  if (isDemo){ fontes=[]; isDemo=false; $('#fIni').value=''; $('#fFim').value=''; selClass=null; salvarClass(); }
+  for (const file of files){
+    if (!/\.(xlsx|xlsm|xls|csv)$/i.test(file.name) || file.name.startsWith('~$')) continue;
+    $('#status').textContent = `Lendo ${file.name}…`;
+    await new Promise(r=>setTimeout(r,40));   // deixa a tela respirar entre um arquivo e outro
+    try{
+      const f = await lerArquivo(file, origem);
+      fontes = fontes.filter(x=>x.nome!==f.nome); fontes.push(f);
+    }catch(e){ alert('Erro ao ler '+file.name+': '+e.message); }
+  }
+  salvar(); registrarNovas(); preencherFiltros(); render();
+}
+
+/* ---------- pasta conectada (Chrome/Edge) ---------- */
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('dashCMR',1); r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbSet(k,v){ try{ const db=await idb(); db.transaction('kv','readwrite').objectStore('kv').put(v,k);}catch(e){} }
+async function idbGet(k){ try{ const db=await idb(); return await new Promise(r=>{const q=db.transaction('kv').objectStore('kv').get(k); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null);}); }catch(e){return null;} }
+
+const hhmm = d => d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+async function lerConectadas(silencioso=false){
+  if(!arqHandles.length) return;
+  const files=[], falhas=[];
+  for (const h of arqHandles){
+    try{
+      let perm = await h.queryPermission({mode:'read'});
+      if (perm!=='granted' && !silencioso) perm = await h.requestPermission({mode:'read'});
+      if (perm!=='granted'){ falhas.push(h.name+' (sem permissão)'); continue; }
+      files.push(await h.getFile());
+    }catch(e){ falhas.push(h.name+' (não encontrada)'); }
+  }
+  if (files.length){
+    const nomes=new Set(files.map(f=>f.name));
+    fontes = fontes.filter(f=>f.origem!=='conectada' || !nomes.has(f.nome));
+    await adicionarArquivos(files,'conectada');
+  }
+  const prox = new Date(Date.now()+15*60*1000);
+  $('#status').innerHTML = `${files.length} de ${arqHandles.length} planilha(s) lida(s) · atualizado ${hhmm(new Date())} · próxima ${hhmm(prox)}`
+    + (falhas.length? ` · <button id="btnLiberar" style="background:var(--warn);color:#000;padding:3px 10px" title="${esc(falhas.join('\n'))}">🔓 Liberar leitura de ${falhas.length} planilha(s)</button>`:'');
+  const bl=$('#btnLiberar'); if(bl) bl.onclick=()=>lerConectadas(false);
+}
+$('#btnConectar').onclick = async ()=>{
+  if(!window.showOpenFilePicker){ alert('Seu navegador não permite manter as planilhas conectadas. Use Chrome ou Edge. Vou abrir a seleção comum (sem atualização automática).'); $('#inpArq').click(); return; }
+  try{
+    const novos = await window.showOpenFilePicker({multiple:true, types:[{description:'Planilhas',accept:{
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx','.xlsm'],'application/vnd.ms-excel':['.xls'],'text/csv':['.csv']}}]});
+    for (const h of novos){
+      let dup=false; for (const x of arqHandles){ if (await x.isSameEntry(h)) { dup=true; break; } }
+      if(!dup) arqHandles.push(h);
+    }
+    await idbSet('arqs',arqHandles); await lerConectadas();
+  }catch(e){}
+};
+$('#btnAtualizar').onclick = async ()=>{
+  if(!arqHandles.length){ alert('Nenhuma planilha selecionada. Clique em "📄 Selecionar planilhas".'); return; }
+  await lerConectadas();
+};
+$('#inpArq').onchange = e=>{ adicionarArquivos([...e.target.files]); e.target.value=''; };
+const drop=$('#drop');
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hover');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hover');}));
+drop.addEventListener('drop',e=>adicionarArquivos([...e.dataTransfer.files]));
+
+/* ---------- persistência local ---------- */
+function salvar(){
+  if (isDemo) return;
+  try{ localStorage.setItem('dashCMR_fontes', JSON.stringify(fontes,(k,v)=>k==='_g'||k==='_s'?undefined:v)); }catch(e){}
+}
+function carregar(){
+  try{
+    const s=JSON.parse(localStorage.getItem('dashCMR_fontes')||'null');
+    if (s && s.length){ fontes=s.map(f=>({...f,data:f.data?new Date(f.data):null,linhas:f.linhas.map(l=>({...l,data:l.data?new Date(l.data):null})),linhasDeriv:(f.linhasDeriv||[]).map(l=>({...l,data:l.data?new Date(l.data):null}))})); return true; }
+  }catch(e){}
+  return false;
+}
+
+/* ================= DADOS DE EXEMPLO ================= */
+function demo(){
+  isDemo=true;
+  const areas={ 'Zootécnica':['Mistura 01','Mistura 02','Mistura 03','Mistura 04'], 'Apollo':['Solução','Secagem'], 'Polivitamínicos':['Polivitamínicos'], 'TM Forberg':['Forberg 1','Forberg 2'], 'Fosfato':[1,2,3,4,5,6,7,8].map(n=>'Reator 0'+n), 'Hidrocal':['Hidrocal'] };
+  const maqs=['Misturador','Elevador de canecas','Rosca transportadora','Ensacadeira','Balança dosadora','Peneira vibratória','Filtro de mangas','Válvula rotativa'];
+  const cls=['Corretiva','Operacional','Programada','Utilidades','Qualidade'];
+  const mot=['Falha mecânica','Falha elétrica','Falta de material','Setup / troca de produto','Limpeza','Instrumentação'];
+  let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+  const hoje=new Date(); hoje.setHours(0,0,0,0);
+  fontes=Object.entries(areas).map(([area,plantas])=>{
+    const linhas=[];
+    plantas.forEach(p=>{
+      for(let i=0;i<30;i++){
+        const w=Math.floor(Math.pow(rnd(),1.8)*maqs.length);
+        const d=new Date(hoje); d.setDate(d.getDate()-Math.floor(rnd()*60)); const hr=Math.floor(rnd()*24), mi=Math.floor(rnd()*60);
+        linhas.push({data:d,ts:+d+hr*36e5+mi*6e4,area,planta:p,maquina:maqs[w],min:Math.round(10+Math.pow(rnd(),2)*240),motivo:mot[Math.floor(Math.pow(rnd(),1.4)*mot.length)],tipo:'',classif:cls[Math.floor(Math.pow(rnd(),1.3)*cls.length)]});
+      }
+    });
+    return {nome:area+'.xlsx',area,linhas,colunas:{data:'Data',planta:'Planta',maquina:'Máquina',duracao:'Tempo Parado (min)',motivo:'Motivo',classif:'Classificação'},origem:'exemplo'};
+  });
+}
+
+/* ================= ESTRUTURA DAS PLANTAS CMR =================
+   Ordem dos cards e derivações. "alias" = nomes que podem aparecer nas planilhas
+   (na coluna Área, Planta ou no nome do arquivo) — sem acento/maiúscula; "01" = "1". */
+const ESTRUTURA = [
+  {nome:'Zootécnica', alias:['zootecnica','zoo','zootec'], subs:[
+    {nome:'Mistura 01', alias:['mistura 1','misturador 1','misturadora 1','m1','mist 1']},
+    {nome:'Mistura 02', alias:['mistura 2','misturador 2','misturadora 2','m2','mist 2']},
+    {nome:'Mistura 03', alias:['mistura 3','misturador 3','misturadora 3','m3','mist 3']},
+    {nome:'Mistura 04', alias:['mistura 4','misturador 4','misturadora 4','m4','mist 4']} ]},
+  {nome:'Apollo', alias:['apollo','apolo'], subs:[
+    {nome:'Solução', alias:['solucao','solucoes','sol']},
+    {nome:'Secagem', alias:['secagem','secador','seca','dryer','spray dryer']} ]},
+  {nome:'Polivitamínicos', alias:['polivitaminicos','polivitaminico','polivit','poli']},
+  {nome:'TM Forberg', alias:['tm forberg','forberg','tmf','tm'], subs:[
+    {nome:'Forberg 1', alias:['forberg 1','tm forberg 1','tmf 1','tmf1','f1']},
+    {nome:'Forberg 2', alias:['forberg 2','tm forberg 2','tmf 2','tmf2','f2']} ]},
+  {nome:'Fosfato', alias:['fosfato'], faixa:true, subs:   // faixa:true = derivações em 2 colunas, abaixo do card
+    [1,2,3,4,5,6,7,8].map(n=>({nome:'Reator 0'+n, alias:['reator '+n,'reat '+n,'rt '+n,'r '+n,String(n)]})), unidade:true },
+  {nome:'Hidrocal', alias:['hidrocal']}
+];
+const chave = s => norm(s).replace(/([a-z])(\d)/g,'$1 $2').replace(/[^a-z0-9]+/g,' ').replace(/\b0+(\d)/g,'$1').trim();
+const bate = (txt, aliases) => { const t=chave(txt); if(!t) return false; return aliases.some(a=>{ const c=chave(a); return t===c || (' '+t+' ').includes(' '+c+' '); }); };
+function classificarPlanta(l){
+  if (l._g!==undefined) return;
+  const temSub = (G,t)=>(G.subs||[]).some(S=>bate(t,S.alias));
+  let g = ESTRUTURA.find(G=>bate(l.area,G.alias)) || ESTRUTURA.find(G=>bate(l.planta,G.alias))
+       || ESTRUTURA.find(G=>temSub(G,l.planta)||temSub(G,l.area));
+  l._g = g? g.nome : 'Outras';
+  l._s = null;
+  if (g && g.subs){
+    // derivação: procura na Planta primeiro (mais específica), depois na Área
+    const sub = g.subs.find(S=>bate(l.planta,S.alias)) || g.subs.find(S=>bate(l.area,S.alias));
+    l._s = sub? sub.nome : null;
+  }
+}
+
+/* ================= FILTROS ================= */
+function todasLinhas(){ return fontes.flatMap(f=>f.linhas); }
+const cl = l => l.classif || '(sem classificação)';
+let selClass = null; // null = todas
+try{ const s=JSON.parse(localStorage.getItem('dashCMR_class')||'null'); if(Array.isArray(s)) selClass=new Set(s); }catch(e){}
+function salvarClass(){ try{ localStorage.setItem('dashCMR_class', JSON.stringify(selClass?[...selClass]:null)); }catch(e){} }
+function montarClass(){
+  const cont=new Map(); todasLinhas().forEach(l=>cont.set(cl(l),(cont.get(cl(l))||0)+1));
+  const vals=[...cont.keys()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  if (selClass && selClass.size && vals.length && !vals.some(v=>selClass.has(v))) { selClass=null; salvarClass(); }
+  const marcado=v=>!selClass||selClass.has(v);
+  $('#msPn').innerHTML=`<div class="acts"><button type="button" class="light" id="msAll">Marcar todas</button><button type="button" class="light" id="msNone">Limpar</button></div>`+
+    (vals.length? vals.map(v=>`<label><input type="checkbox" value="${esc(v)}" ${marcado(v)?'checked':''}>${esc(v)}<small>${fmtInt(cont.get(v))}</small></label>`).join('') : '<div style="padding:6px;color:var(--muted)">Nenhuma coluna Classificação encontrada</div>');
+  const n = selClass? vals.filter(v=>selClass.has(v)).length : vals.length;
+  $('#msBtn').textContent = !selClass || n===vals.length ? 'Todas' : n===0 ? 'Nenhuma' : n===1 ? vals.find(v=>selClass.has(v)) : `${n} selecionadas`;
+  $('#msPn').querySelectorAll('input').forEach(i=>i.onchange=()=>{
+    const marc=[...$('#msPn').querySelectorAll('input:checked')].map(x=>x.value);
+    selClass = marc.length===vals.length? null : new Set(marc); salvarClass(); montarClass(); render();
+  });
+  $('#msAll').onclick=()=>{ selClass=null; salvarClass(); montarClass(); render(); };
+  $('#msNone').onclick=()=>{ selClass=new Set(); salvarClass(); montarClass(); render(); };
+}
+$('#msBtn').onclick=e=>{ e.stopPropagation(); $('#msClass').classList.toggle('open'); };
+$('#msPn').addEventListener('click',e=>e.stopPropagation());
+document.addEventListener('click',()=>$('#msClass').classList.remove('open'));
+let filtroManual=false;   // vira true só quando você mexe nas datas/mês; "Hoje" volta ao padrão
+const mesAtual=()=>iso(new Date()).slice(0,7);
+function aplicarHoje(){ const h=new Date(); $('#fIni').value=iso(new Date(h.getFullYear(),h.getMonth(),1)); $('#fFim').value=iso(h); }
+function preencherFiltros(){
+  const L=todasLinhas();
+  const areas=[...new Set(L.map(l=>l.area))].sort();
+  const sA=$('#fArea'), cur=sA.value;
+  sA.innerHTML='<option value="">Todas</option>'+areas.map(a=>`<option ${a===cur?'selected':''}>${esc(a)}</option>`).join('');
+  atualizarPlantas(); montarClass();
+  if (!filtroManual) aplicarHoje();          // padrão: sempre o mês atual até hoje
+  const temCmr=fontes.some(f=>(f.cmr||[]).length);
+  const meses=[...new Set([mesAtual(),...fontes.flatMap(f=>f.cmr||[]).map(c=>c.mes)])].sort().reverse();
+  const sM=$('#fMes'), curM=sM.value;
+  sM.innerHTML=meses.map(m=>`<option value="${m}">${mesLabel(m)}${m===mesAtual()?' (atual)':''}</option>`).join('');
+  sM.value = (!filtroManual || !meses.includes(curM)) ? mesAtual() : curM;
+  $('#lblMes').style.display=temCmr?'':'none';
+  $('#demoFlag').style.display=isDemo?'':'none';
+}
+function atualizarPlantas(){
+  const a=$('#fArea').value, sP=$('#fPlanta'), cur=sP.value;
+  const pl=[...new Set(todasLinhas().filter(l=>!a||l.area===a).map(l=>l.planta))].sort();
+  sP.innerHTML='<option value="">Todas</option>'+pl.map(p=>`<option ${p===cur?'selected':''}>${esc(p)}</option>`).join('');
+}
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const todasDeriv = () => fontes.flatMap(f=>f.linhasDeriv||[]);
+function filtrar(arr, comPlanta=true){
+  const ini=$('#fIni').value? new Date($('#fIni').value+'T00:00'):null;
+  const fim=$('#fFim').value? new Date($('#fFim').value+'T00:00'):null;
+  const a=$('#fArea').value, p=comPlanta?$('#fPlanta').value:'';
+  return arr.filter(l=>(!a||l.area===a)&&(!p||l.planta===p)&&(!selClass||selClass.has(cl(l)))&&(!ini||!l.data||l.data>=ini)&&(!fim||!l.data||l.data<=fim));
+}
+function filtrado(){
+  const ini=$('#fIni').value? new Date($('#fIni').value+'T00:00'):null;
+  const fim=$('#fFim').value? new Date($('#fFim').value+'T00:00'):null;
+  const L=filtrar(todasLinhas());
+  let dias=1;
+  if (ini&&fim) dias=Math.round((fim-ini)/864e5)+1;
+  else { const ds=L.map(l=>l.data).filter(Boolean); if(ds.length) dias=Math.round((Math.max(...ds)-Math.min(...ds))/864e5)+1; }
+  return {L,dias:Math.max(1,dias)};
+}
+['#fIni','#fFim','#fMes'].forEach(s=>$(s).addEventListener('change',()=>{ filtroManual=true; $('#btnLimpar').classList.add('on'); }));
+['#fIni','#fFim','#fPlanta','#fHoras','#fMes'].forEach(s=>$(s).addEventListener('change',render));
+// vira o dia/mês sozinho se você não filtrou nada
+setInterval(()=>{ if(!filtroManual && ($('#fFim').value!==iso(new Date()) || $('#fMes').value!==mesAtual())){ preencherFiltros(); render(); } }, 60*1000);
+$('#fArea').addEventListener('change',()=>{atualizarPlantas();render();});
+$('#btnLimpar').onclick=()=>{ filtroManual=false; $('#btnLimpar').classList.remove('on'); selClass=null; salvarClass(); $('#fArea').value=''; atualizarPlantas(); $('#fPlanta').value=''; preencherFiltros(); render(); };
+
+/* ================= GRÁFICOS ================= */
+const tip=$('#tip');
+function bindTips(root){
+  root.querySelectorAll('[data-tip]').forEach(el=>{
+    el.addEventListener('mousemove',e=>{tip.innerHTML=el.dataset.tip;tip.style.opacity=1;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';});
+    el.addEventListener('mouseleave',()=>tip.style.opacity=0);
+  });
+}
+const pt=(cx,cy,r,a)=>[cx+r*Math.cos(a), cy-r*Math.sin(a)];
+function arc(cx,cy,r,a0,a1){ const [x0,y0]=pt(cx,cy,r,a0),[x1,y1]=pt(cx,cy,r,a1); return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; }
+
+/* meia-lua com várias fatias */
+function meiaLua(el, itens, unidade, centroLabel){
+  const tot=itens.reduce((s,i)=>s+i.v,0);
+  if(!tot){ el.innerHTML='<div class="empty">Sem dados no filtro</div>'; return; }
+  const cx=160,cy=150,r=115,sw=42; let a=Math.PI, segs='';
+  itens.forEach((it,i)=>{
+    const f=it.v/tot, a1=a-f*Math.PI, gap=itens.length>1?0.006:0;
+    segs+=`<path d="${arc(cx,cy,r,a-gap,a1+gap)}" stroke="${PAL[i%PAL.length]}" stroke-width="${sw}" fill="none" data-tip="<b>${esc(it.k)}</b><br>${fmt(it.v,unidade==='h'?1:0)} ${unidade} · ${fmt(f*100)}%"/>`;
+    a=a1;
+  });
+  const totTxt = unidade==='h'? fmt(tot,1)+' h' : fmtInt(tot);
+  el.innerHTML=`<svg viewBox="0 0 320 175"><path d="${arc(cx,cy,r,Math.PI,0)}" stroke="#eef2f6" stroke-width="${sw}" fill="none"/>${segs}
+    <text x="${cx}" y="${cy-18}" text-anchor="middle" font-size="30" font-weight="700" fill="#0b2a4a">${totTxt}</text>
+    <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="12" fill="#5f6f80">${centroLabel}</text></svg>
+    <div class="legend">${itens.map((it,i)=>`<div><i style="background:${PAL[i%PAL.length]}"></i>${esc(it.k)}<b>${unidade==='h'?fmt(it.v,1)+' h':fmtInt(it.v)} · ${fmt(it.v/tot*100,0)}%</b></div>`).join('')}</div>`;
+  bindTips(el);
+}
+/* meia-lua tipo medidor (0–100%) */
+function gauge(pct, compacto=false, semDados=false, rotulo='disponibilidade', corForcada=null){
+  const cx=100,cy=95,r=72,sw=18, p=Math.max(0,Math.min(1,pct));
+  const cor = semDados?'#b9c7d6': corForcada? corForcada : p>=0.95?'var(--ok)':p>=0.90?'var(--warn)':'var(--bad)';
+  return `<svg viewBox="0 0 200 110" style="width:100%;max-width:${compacto?'96px':'220px'};display:block;margin:${compacto?'0':'4px auto 0'}">
+    <path d="${arc(cx,cy,r,Math.PI,0)}" stroke="#eef2f6" stroke-width="${sw}" fill="none" stroke-linecap="round"/>
+    ${p>0?`<path d="${arc(cx,cy,r,Math.PI,Math.PI-p*Math.PI)}" stroke="${cor}" stroke-width="${sw}" fill="none" stroke-linecap="round"/>`:''}
+    <text x="${cx}" y="${cy-(compacto?4:10)}" text-anchor="middle" font-size="${compacto?34:24}" font-weight="700" fill="#0b2a4a">${semDados?'—':fmt(pct*100, corForcada?2:1)+'%'}</text>
+    ${compacto?'':`<text x="${cx}" y="${cy+8}" text-anchor="middle" font-size="10" fill="#5f6f80">${semDados?'sem dados':esc(rotulo)}</text>`}</svg>`;
+}
+function agrupar(L,key,val){ const m=new Map(); L.forEach(l=>m.set(l[key],(m.get(l[key])||0)+val(l))); return [...m].map(([k,v])=>({k,v})).sort((a,b)=>b.v-a.v); }
+function topMais(arr,n){ if(arr.length<=n) return arr; const r=arr.slice(0,n-1); r.push({k:'Outros',v:arr.slice(n-1).reduce((s,i)=>s+i.v,0)}); return r; }
+
+/* ================= RENDER ================= */
+function render(){
+  const {L,dias}=filtrado(); const hDia=+$('#fHoras').value||24;
+  const nF=fontes.length;
+  if (!arqHandles.length) $('#status').textContent = isDemo? 'Mostrando dados de exemplo — conecte suas planilhas' : `${nF} planilha(s) · ${fmtInt(todasLinhas().length)} registros`;
+  renderPrincipal(L,dias,hDia); renderPareto(L); renderFontes();
+}
+function renderPrincipal(L,dias,hDia){
+  const horas=L.reduce((s,l)=>s+l.min,0)/60;
+  const maqs=new Set(L.map(l=>l.planta+'|'+l.maquina));
+  const plantasTodas=[...new Set(todasLinhas().filter(l=>!$('#fArea').value||l.area===$('#fArea').value).filter(l=>!$('#fPlanta').value||l.planta===$('#fPlanta').value).map(l=>l.planta))];
+  const maqsPorPlanta=p=>new Set(todasLinhas().filter(l=>l.planta===p).map(l=>l.maquina)).size||1;
+  const dispon = plantasTodas.length ? 1 - horas / plantasTodas.reduce((s,p)=>s+maqsPorPlanta(p)*dias*hDia,0) : 1;
+  renderBanco(L);
+
+  const tudo=todasLinhas(); tudo.forEach(classificarPlanta); L.forEach(classificarPlanta);
+  const tudoD=todasDeriv(); tudoD.forEach(classificarPlanta); const LD=filtrar(tudoD,false);
+  const aF=$('#fArea').value;
+  const calc=(filtroL, filtroTudo, deriv=false, umaUnidade=false)=>{
+    const lp=(deriv?LD:L).filter(filtroL), base=(deriv?tudoD:tudo).filter(filtroTudo);
+    const n=umaUnidade? (base.length?1:0) : new Set(base.map(l=>l.planta+'|'+l.maquina)).size;
+    const h=lp.reduce((s,l)=>s+l.min,0)/60;
+    return {h,qtd:lp.length,n,semDados:!base.length,disp:n?Math.max(0,1-h/(n*dias*hDia)):1,top:agrupar(lp,'maquina',l=>l.min/60)[0]};
+  };
+  const mesSel=$('#fMes').value, cmrTodos=fontes.flatMap(f=>f.cmr||[]);
+  const cmrDe=(g,sb)=>{
+    const arr=cmrTodos.filter(c=>!c.extra && c.grupo===g && (c.sub||null)===(sb||null));
+    if (arr.length){ const c=arr.find(c=>c.mes===mesSel); return {v:c?c.v:null, meta:arr[0].meta, sentido:arr[0].sentido}; }
+    if (!sb){ const ss=cmrTodos.filter(c=>!c.extra && c.grupo===g && c.sub); if(ss.length){ const m=ss.filter(c=>c.mes===mesSel);
+      return {v:m.length?m.reduce((t,c)=>t+c.v,0)/m.length:null, meta:ss[0].meta, sentido:ss[0].sentido, media:true}; } }
+    return null; };
+  const corCmr=c=>{ if(!c||c.v==null||c.meta==null) return 'var(--teal)';
+    return c.sentido==='menor' ? (c.v<=c.meta?'var(--ok)':c.v<=c.meta*1.15?'var(--warn)':'var(--bad)')
+                               : (c.v>=c.meta?'var(--ok)':c.v>=c.meta*0.95?'var(--warn)':'var(--bad)'); };
+  const grupos=[...ESTRUTURA];
+  if (tudo.some(l=>l._g==='Outras')) grupos.push({nome:'Outras'});
+  const visiveis=grupos.filter(G=>!aF || tudo.some(l=>l.area===aF && l._g===G.nome));
+  const faixas=[];
+  $('#plants').innerHTML = visiveis.map(G=>{
+    const x=calc(l=>l._g===G.nome, l=>l._g===G.nome);
+    const usaDeriv=tudoD.some(l=>l._g===G.nome);
+    const subs=(G.subs||[]).map(S=>{ const y=calc(l=>l._g===G.nome&&l._s===S.nome, l=>l._g===G.nome&&l._s===S.nome, usaDeriv, !!G.unidade);
+      const cs=cmrDe(G.nome,S.nome);
+      if (G.faixa) return `<div class="mini ${y.semDados&&!cs?'vazio':''}"><h4>${esc(S.nome)}</h4>
+        ${cs? gauge(cs.v??0,true,cs.v==null,'',corCmr(cs)) : gauge(y.disp,true,y.semDados)}
+        ${y.semDados?'':`<b>${fmtInt(y.qtd)}</b> par. · <b>${fmt(y.h,1)} h</b>`}</div>`;
+      const gz= cs? gauge(cs.v??0,true,cs.v==null,'',corCmr(cs)) : gauge(y.disp,true,y.semDados);
+      return `<div class="sub ${y.semDados&&!cs?'vazio':''}" title="${cs?'CMR '+mesLabel(mesSel):'Disponibilidade calculada pelas paradas'}">${gz}
+        <div class="inf"><h4>${esc(S.nome)}</h4>${cs?`<span style="color:var(--teal);font-weight:700">CMR ${mesLabel(mesSel)}</span><br>`:''}${y.semDados?(cs?'':'sem dados'):`Paradas <b>${fmtInt(y.qtd)}</b> · <b>${fmt(y.h,1)} h</b><br>${y.top?'Mais parou: <b>'+esc(y.top.k)+'</b>':''}`}</div></div>`; }).join('');
+    const cg=cmrDe(G.nome,null);
+    return `<div class="col"><div class="plant ${x.semDados&&!cg?'vazio':''}">
+      <h3>${esc(G.nome)}</h3><div class="ar">${G.subs?G.subs.length+' derivações · ':''}${x.n} máquina(s)</div>
+      ${cg? gauge(cg.v??0,false,cg.v==null,'CMR · '+mesLabel(mesSel)+(cg.media?' (média)':'')+(cg.meta!=null?' · meta '+fmt(cg.meta*100,1)+'%':''),corCmr(cg)) : gauge(x.disp,false,x.semDados,'disponibilidade (calc.)')}
+      ${[...new Set(cmrTodos.filter(c=>c.extra&&c.grupo===G.nome).map(c=>c.extra))].map(nx=>{ const c=cmrTodos.find(c=>c.extra===nx&&c.grupo===G.nome&&c.mes===mesSel);
+        return `<div class="row"><span>${esc(nx)}</span><b>${c?fmt(c.v*100,2)+'%':'—'}</b></div>`; }).join('')}
+      <div class="row"><span>Paradas</span><b>${fmtInt(x.qtd)}</b></div>
+      <div class="row"><span>Horas paradas</span><b>${fmt(x.h,1)} h</b></div>
+      <div class="row"><span>Mais parou</span><b>${x.top?esc(x.top.k):'—'}</b></div>
+    </div>${subs? (G.faixa?`<div class="subs2">${subs}</div>`:`<div class="subs">${subs}</div>`) :''}</div>`;
+  }).join('') + faixas.join('') || '<div class="empty">Nenhuma planta no filtro</div>';
+}
+/* ---------- banco de paradas (mais recentes no topo; novas entram animadas) ---------- */
+const chaveParada = l => [l.area,l.planta,l.maquina,l.ts||'',l.min,l.motivo,l.classif||''].join('|');
+let vistas=null; const novasAte=new Map();
+try{ const v=JSON.parse(localStorage.getItem('dashCMR_vistas')||'null'); if(Array.isArray(v)) vistas=new Set(v); }catch(e){}
+function registrarNovas(){
+  if (isDemo) return;
+  const todas=todasLinhas().map(chaveParada);
+  if (!vistas){ vistas=new Set(todas); }            // primeira carga: nada é "novo"
+  else { const ate=Date.now()+15*60*1000; todas.forEach(k=>{ if(!vistas.has(k)){ novasAte.set(k,ate); vistas.add(k);} }); }
+  try{ localStorage.setItem('dashCMR_vistas', JSON.stringify([...vistas])); }catch(e){}
+}
+const dh = l => { const t=l.ts||(l.data&&+l.data); if(!t) return '—'; const d=new Date(t);
+  const temHora = d.getHours()||d.getMinutes(); return d.toLocaleDateString('pt-BR')+(temHora?' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''); };
+function renderBanco(L){
+  const q=norm($('#bancoBusca').value);
+  const agora=Date.now();
+  let arr=L.filter(l=>!q||norm([l.maquina,l.planta,l.area,l.motivo,l.classif].join(' ')).includes(q))
+           .sort((a,b)=>(b.ts||+b.data||0)-(a.ts||+a.data||0));
+  const total=arr.length; arr=arr.slice(0,300);
+  $('#bancoInfo').textContent=`· ${fmtInt(total)} parada(s)${total>300?' — mostrando as 300 mais recentes':''}`;
+  if(!arr.length){ $('#banco').innerHTML='<div class="empty">Nenhuma parada no filtro</div>'; return; }
+  $('#banco').innerHTML=`<table><tr><th>Data / hora</th><th>Planta</th><th>Área</th><th>Máquina</th><th>Classificação</th><th>Motivo</th><th class="n">Tempo parado</th></tr>
+    ${arr.map(l=>{ const nova=(novasAte.get(chaveParada(l))||0)>agora;
+      const h=l.min>=60? `${Math.floor(l.min/60)}h${String(Math.round(l.min%60)).padStart(2,'0')}` : `${Math.round(l.min)} min`;
+      return `<tr class="${nova?'nova':''}"><td>${dh(l)}${nova?'<span class="badge-n">NOVA</span>':''}</td><td><b>${esc(l.planta)}</b></td><td>${esc(l.area)}</td><td>${esc(l.maquina)}</td><td>${esc(l.classif||'')}</td><td>${esc(l.motivo)}</td><td class="n">${h}</td></tr>`; }).join('')}</table>`;
+}
+$('#bancoBusca').addEventListener('input',()=>renderBanco(filtrado().L));
+
+function renderPareto(L){
+  const val = metric==='horas'? l=>l.min/60 : ()=>1;
+  const m=new Map();
+  L.forEach(l=>{ const k=l.maquina+'||'+l.planta; const o=m.get(k)||{maq:l.maquina,planta:l.planta,area:l.area,h:0,q:0}; o.h+=l.min/60; o.q++; m.set(k,o); });
+  const arr=[...m.values()].map(o=>({...o,v:metric==='horas'?o.h:o.q})).sort((a,b)=>b.v-a.v);
+  const tot=arr.reduce((s,o)=>s+o.v,0); let ac=0;
+  arr.forEach(o=>{ ac+=o.v; o.pct=tot?o.v/tot:0; o.acum=tot?ac/tot:0; o.cls=o.acum-o.pct<0.8?'A':o.acum-o.pct<0.95?'B':'C'; });
+  const N=+$('#topN').value, vis=arr.slice(0,N);
+  const el=$('#pareto');
+  if(!vis.length){ el.innerHTML='<div class="empty">Sem dados no filtro</div>'; $('#paretoTbl').innerHTML=''; return; }
+  const W=1000,H=430,ml=56,mr=56,mt=20,mb=120, iw=W-ml-mr, ih=H-mt-mb;
+  const max=vis[0].v*1.1, bw=iw/vis.length;
+  const y=v=>mt+ih-(v/max)*ih, yp=p=>mt+ih-p*ih;
+  const dupl=new Set(); const nomes=new Map(); vis.forEach(o=>{ if(nomes.has(o.maq)) dupl.add(o.maq); nomes.set(o.maq,1); });
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">`;
+  for(let i=0;i<=5;i++){ const v=max/5*i, yy=y(v); s+=`<line x1="${ml}" x2="${W-mr}" y1="${yy}" y2="${yy}" stroke="#eef2f6"/><text x="${ml-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="#5f6f80">${metric==='horas'?fmt(v,0):Math.round(v)}</text>`;
+    s+=`<text x="${W-mr+6}" y="${yp(i/5)+4}" font-size="11" fill="#5f6f80">${i*20}%</text>`; }
+  s+=`<line x1="${ml}" x2="${W-mr}" y1="${yp(.8)}" y2="${yp(.8)}" stroke="var(--bad)" stroke-dasharray="5 4"/><text x="${W-mr-4}" y="${yp(.8)-5}" text-anchor="end" font-size="11" fill="var(--bad)" font-weight="700">80%</text>`;
+  vis.forEach((o,i)=>{
+    const x=ml+i*bw+bw*0.15, w=bw*0.7, cor=o.cls==='A'?'#0b5ea8':o.cls==='B'?'#5aa9e6':'#b9cde0';
+    const nome=dupl.has(o.maq)?`${o.maq} (${o.planta})`:o.maq;
+    s+=`<rect x="${x}" y="${y(o.v)}" width="${w}" height="${mt+ih-y(o.v)}" fill="${cor}" rx="2" data-tip="<b>${esc(o.maq)}</b> · ${esc(o.planta)}<br>${fmt(o.h,1)} h · ${o.q} parada(s)<br>${fmt(o.pct*100)}% · acumulado ${fmt(o.acum*100)}%"/>`;
+    if(vis.length<=20) s+=`<text x="${x+w/2}" y="${y(o.v)-4}" text-anchor="middle" font-size="10" fill="#1b2733">${metric==='horas'?fmt(o.v,1):o.v}</text>`;
+    const lx=x+w/2, ly=mt+ih+10; const lab=nome.length>22?nome.slice(0,21)+'…':nome;
+    s+=`<text transform="translate(${lx},${ly}) rotate(-40)" text-anchor="end" font-size="11" fill="#1b2733">${esc(lab)}</text>`;
+  });
+  const pts=vis.map((o,i)=>`${ml+i*bw+bw/2},${yp(o.acum)}`).join(' ');
+  s+=`<polyline points="${pts}" fill="none" stroke="#f0a500" stroke-width="2.5"/>`;
+  vis.forEach((o,i)=>s+=`<circle cx="${ml+i*bw+bw/2}" cy="${yp(o.acum)}" r="3.5" fill="#fff" stroke="#f0a500" stroke-width="2" data-tip="Acumulado: ${fmt(o.acum*100)}%"/>`);
+  s+=`<text x="16" y="${mt+ih/2}" transform="rotate(-90 16 ${mt+ih/2})" text-anchor="middle" font-size="11" fill="#5f6f80">${metric==='horas'?'Horas paradas':'Nº de paradas'}</text>`;
+  s+='</svg>';
+  el.innerHTML=s; bindTips(el);
+  $('#paretoTbl').innerHTML=`<table><tr><th>#</th><th>Máquina</th><th>Planta</th><th>Área</th><th class="n">Horas</th><th class="n">Paradas</th><th class="n">MTTR (min)</th><th class="n">%</th><th class="n">% acum.</th><th>Classe</th></tr>
+    ${arr.map((o,i)=>`<tr><td>${i+1}</td><td>${esc(o.maq)}</td><td>${esc(o.planta)}</td><td>${esc(o.area)}</td><td class="n">${fmt(o.h,1)}</td><td class="n">${o.q}</td><td class="n">${fmt(o.h*60/o.q,0)}</td><td class="n">${fmt(o.pct*100)}</td><td class="n">${fmt(o.acum*100)}</td><td><span class="cls c${o.cls}">${o.cls}</span></td></tr>`).join('')}</table>`;
+}
+document.querySelectorAll('#segMetric button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segMetric button').forEach(x=>x.classList.remove('on'));b.classList.add('on');metric=b.dataset.m;render();});
+$('#topN').onchange=render;
+
+function renderFontes(){
+  const campos=['data','area','planta','maquina','duracao','classif','motivo'];
+  $('#fontes').innerHTML = fontes.length? `<table><tr><th>Arquivo</th><th>Origem</th><th class="n">Paradas</th><th class="n">Meses CMR</th><th>Colunas usadas</th><th></th></tr>
+    ${fontes.map((f,i)=>`<tr><td><b>${esc(f.nome)}</b><br><small style="color:var(--muted)">${f.preset?'✔ configuração pronta · área '+esc(f.area):f.manual?'⚙ configurada manualmente · área '+esc(f.area):'leitura automática'}${(f.linhasDeriv||[]).length?' · '+fmtInt(f.linhasDeriv.length)+' paradas por derivação':''}</small></td><td>${esc(f.origem)}</td>
+      <td class="n">${fmtInt(f.linhas.length)}</td><td class="n">${new Set((f.cmr||[]).map(c=>c.mes)).size||'—'}${(()=>{ const m=new Map(); (f.cmr||[]).forEach(c=>{const k=c.sub||'geral'; m.set(k,(m.get(k)||0)+1);}); return m.size>1?'<br><small style="color:var(--muted)">'+[...m].map(([k,n])=>esc(k)+': '+n).join(' · ')+'</small>':''; })()}</td>
+      <td>${campos.map(c=>f.colunas[c]?`<span class="pill" title="${esc(f.colunas[c])}">${c}</span>`:`<span class="pill miss">${c}</span>`).join('')}</td>
+      <td style="white-space:nowrap"><button data-cfg="${i}">⚙ Configurar</button> <button class="light" data-rm="${i}">Remover</button></td></tr>`).join('')}</table>
+    ${fontes.some(f=>!f.linhas.length)?'<p style="color:var(--bad)">⚠ Algum arquivo veio sem registros: confira se tem as colunas Máquina e Tempo parado (ou Início/Fim).</p>':''}`
+    : '<div class="empty">Nenhuma planilha carregada.</div>';
+  document.querySelectorAll('[data-cfg]').forEach(b=>b.onclick=()=>abrirConfig(fontes[+b.dataset.cfg].nome));
+  document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=async()=>{
+    const f=fontes.splice(+b.dataset.rm,1)[0];
+    if (f && f.origem==='conectada'){ arqHandles=arqHandles.filter(h=>h.name!==f.nome); await idbSet('arqs',arqHandles); }
+    salvar();preencherFiltros();render();});
+}
+
+/* ---------- configuração manual por planilha ---------- */
+function sugerir(wb, nome){
+  const g = ESTRUTURA.find(G=>bate(nome.replace(/\.[^.]+$/,''),G.alias));
+  const cfg={grupo:g?g.nome:'', cmr:{aba:'',hdr:1,colMes:'',alvos:{}}, par:{aba:'',hdr:1,unid:'min',cols:{}}};
+  const a=autoParadas(wb);
+  if (a){ cfg.par.aba=a.aba; cfg.par.hdr=a.hi+1; cfg.par.unid=a.map._horas?'h':'min';
+    ['data','inicio','fim','planta','maquina','duracao','classif','motivo'].forEach(k=>{ if(a.map[k]!=null) cfg.par.cols[k]=a.map[k]; }); }
+  // procura uma tabelinha com "Mês" e "CMR"
+  busca: for (const sn of wb.SheetNames){
+    const aoa=aoaDe(wb,sn);
+    for (let i=0;i<Math.min(40,aoa.length);i++){
+      const H=(aoa[i]||[]).map(norm), im=H.findIndex(h=>h==='mes'||h==='mes/ano'||h.startsWith('mes ')), ic=H.findIndex(h=>h.includes('cmr'));
+      if (im>=0 && ic>=0){
+        const nH=cabecalhosMes(aoa).length;
+        cfg.cmr={aba:sn,hdr:i+1,colMes:im,alvos:{_geral:ic},modo:nH>1?'blocos':'tabela',meta:''};
+        if (g && g.subs) g.subs.forEach(S=>{ const j=(aoa[i]||[]).findIndex(h=>bate(h,S.alias)); if(j>=0) cfg.cmr.alvos[S.nome]=j; });
+        break busca;
+      }
+    }
+  }
+  return cfg;
+}
+const getPath=(o,p)=>p.split('.').reduce((x,k)=>x==null?undefined:x[k],o);
+function setPath(o,p,v){ const ks=p.split('.'); let x=o; for(let i=0;i<ks.length-1;i++){ if(x[ks[i]]==null) x[ks[i]]={}; x=x[ks[i]]; } x[ks[ks.length-1]]=v; }
+let cfgNome=null, cfgEd=null;
+function abrirConfig(nome){
+  const wb=wbCache.get(nome);
+  if(!wb){ alert('Clique em ⟳ Atualizar para ler a planilha e depois em ⚙ Configurar.'); return; }
+  cfgNome=nome; cfgEd=JSON.parse(JSON.stringify(CONFIG[nome]||presetPara(wb,nome)||sugerir(wb,nome))); delete cfgEd._preset;
+  cfgEd.par2=cfgEd.par2||{aba:'',hdr:1,unid:'min',cols:{}};
+  cfgEd.cmr=cfgEd.cmr||{aba:'',hdr:1,colMes:'',alvos:{}}; cfgEd.par=cfgEd.par||{aba:'',hdr:1,unid:'min',cols:{}};
+  detectarModo(); desenharCfg(); $('#cfgModal').classList.add('open');
+}
+function detectarModo(){
+  const C=cfgEd.cmr, wb=wbCache.get(cfgNome);
+  if (!C.aba || !wb.Sheets[C.aba] || C.colMes===''||C.colMes==null) return;
+  const aoa=aoaDe(wb,C.aba);
+  const n=cabecalhosMes(aoa).length;
+  const Gd=ESTRUTURA.find(x=>x.nome===(cfgEd.grupo || (ESTRUTURA.find(G=>bate(cfgNome.replace(/\.[^.]+$/,''),G.alias))||{}).nome));
+  if (!(Gd && Gd.subs)) { C.modo='tabela'; }
+  else if (n>1){ const al=C.alvos||{}; const col=[al._geral,...Object.values(al)].find(v=>v!==''&&v!=null); C.modo='blocos'; C.alvos={_geral:col??''}; }
+  else if (!C.modo) C.modo='tabela';
+  if (!C.sentido && C.alvos && C.alvos._geral!==''&&C.alvos._geral!=null){
+    const vs=aoa.map(r=>parsePct((r||[])[+C.alvos._geral])).filter(v=>v!=null).sort((a,b)=>a-b);
+    C.sentido = vs.length && vs[Math.floor(vs.length/2)]<0.3 ? 'menor' : 'maior'; }
+  if (C.meta==null) C.meta='';
+}
+function desenharCfg(){
+  const wb=wbCache.get(cfgNome), c=cfgEd;
+  const sel=(path,opts,extra='')=>{ const cur=String(getPath(c,path)??''); return `<select data-k="${path}" ${extra}>${opts.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===cur?'selected':''}>${esc(l)}</option>`).join('')}</select>`; };
+  const abasOpt=[['','— não usar —'],...wb.SheetNames.map(n=>[n,n])];
+  const colsOpt=(aba,hdr)=>{ if(!aba||!wb.Sheets[aba]) return [['','—']]; const aoa=aoaDe(wb,aba); const H=aoa[(hdr||1)-1]||[];
+    const n=Math.max(H.length,...aoa.slice(0,60).map(r=>(r||[]).length),0);
+    return [['','— não usar —'],...Array.from({length:n},(_,i)=>[i,`${colLetra(i)} · ${H[i]!=null&&String(H[i]).trim()!==''?String(H[i]).trim().slice(0,40):'(sem título)'}`])]; };
+  const preview=(sec,aba,hdr,marc)=>{ if(!aba||!wb.Sheets[aba]) return '';
+    const aoa=aoaDe(wb,aba), ini=Math.max(0,(hdr||1)-3), fimR=Math.min(aoa.length,ini+14);
+    const n=Math.min(18,Math.max(0,...aoa.slice(ini,fimR).map(r=>(r||[]).length)));
+    const cel=v=> v instanceof Date? v.toLocaleDateString('pt-BR') : (v==null?'':String(v));
+    let h=`<div class="prev"><table><tr><th></th>${Array.from({length:n},(_,i)=>`<th>${colLetra(i)}</th>`).join('')}</tr>`;
+    for(let r=ini;r<fimR;r++){ const row=aoa[r]||[];
+      h+=`<tr class="${r===(hdr||1)-1?'hdr':''}"><td class="rn" data-hdr="${sec}" data-r="${r+1}" title="Usar esta linha como cabeçalho">${r+1}</td>${Array.from({length:n},(_,i)=>`<td class="${marc.includes(i)?'sel':''}">${esc(cel(row[i]))}</td>`).join('')}</tr>`; }
+    return h+`</table></div><p class="hint">Linha amarela = cabeçalho (clique no número da linha para trocar). Colunas em verde = selecionadas.</p>`; };
+  const G=ESTRUTURA.find(x=>x.nome===c.grupo);
+  const blocos = c.cmr.modo==='blocos';
+  const alvos= blocos? [['_geral','Coluna CMR (em cada bloco)']] : [['_geral', G&&G.subs?`CMR geral ${c.grupo}`:'Coluna CMR'], ...((G&&G.subs)||[]).map(S=>[S.nome,`CMR ${S.nome}`])];
+  let resumoBlocos='';
+  if (blocos && c.cmr.aba && wb.Sheets[c.cmr.aba] && c.cmr.colMes!==''&&c.cmr.colMes!=null){
+    const aoa=aoaDe(wb,c.cmr.aba), cc=c.cmr.alvos&&c.cmr.alvos._geral;
+    const bl=blocosCMR(aoa,+c.cmr.colMes, cc===''||cc==null?-1:+cc, cc===''||cc==null?'':norm((aoa[(c.cmr.hdr||1)-1]||[])[+cc]), G);
+    const bg=bl.find(b=>!b.sub);
+    if (bg && c.cmr.colGeral!==''&&c.cmr.colGeral!=null) bg.c=+c.cmr.colGeral;
+    if (bg){ const Hg=aoa[bg.h]||[]; const n=Math.max(Hg.length,...aoa.slice(bg.h,bg.fim).map(r=>(r||[]).length));
+      const opts=[['','automática (coluna "CMR")'],...Array.from({length:n},(_,i)=>[i,`${colLetra(i)} · ${Hg[i]!=null&&String(Hg[i]).trim()!==''?String(Hg[i]).trim().slice(0,30):'(sem título)'}`])];
+      resumoBlocos+=`<div class="frow"><label>Coluna CMR do bloco geral (linha ${bg.h+1}) ${sel('cmr.colGeral',opts)}</label></div>`; }
+    resumoBlocos+=`<p class="hint" style="font-size:13px;color:var(--ink)"><b>${bl.length} bloco(s) encontrados:</b> `+(bl.map(b=>`linha ${b.h+1} · ${esc(b.rotulo||'—')} → <b>${esc(b.sub||'geral')}</b>${b.c>=0?' · col. '+colLetra(b.c):''}`).join(' &nbsp;|&nbsp; ')||'nenhum — confira a Coluna Mês')+
+      `${G&&G.subs?'<br>O CMR geral da área é a média das derivações no mês.':''}</p>`;
+  }
+  const cOpt=colsOpt(c.cmr.aba,c.cmr.hdr), pOpt=colsOpt(c.par.aba,c.par.hdr);
+  const marcC=[c.cmr.colMes,...Object.values(c.cmr.alvos||{})].filter(v=>v!==''&&v!=null).map(Number);
+  const marcP=Object.values(c.par.cols||{}).filter(v=>v!==''&&v!=null).map(Number);
+  const campoP=[['data','Data'],['inicio','Hora / data início'],['planta','Planta / derivação'],['maquina','Máquina'],['duracao','Tempo parado'],['classif','Classificação'],['motivo','Motivo']];
+  c.par2=c.par2||{aba:'',hdr:1,unid:'min',cols:{}};
+  const fsPar=(key,titulo)=>{ const P=c[key], o=colsOpt(P.aba,P.hdr), mk=Object.values(P.cols||{}).filter(v=>v!==''&&v!=null).map(Number);
+    return `<fieldset><legend>${esc(titulo)}</legend>
+      <div class="frow"><label>Aba ${sel(key+'.aba',abasOpt)}</label><label>Linha do cabeçalho <input type="number" min="1" data-k="${key}.hdr" value="${P.hdr||1}"></label>
+        <label>Unidade do tempo ${sel(key+'.unid',[['min','minutos (ou hh:mm)'],['h','horas']])}</label></div>
+      <div class="frow">${campoP.map(([k,l])=>`<label>${l} ${sel(key+'.cols.'+k,o)}</label>`).join('')}</div>
+      ${preview(key,P.aba,P.hdr,mk)}</fieldset>`; };
+  $('#cfgBox').innerHTML=`<h2>⚙ Configurar · ${esc(cfgNome)}</h2>
+    <div class="frow"><label>Área desta planilha ${sel('grupo',[['','(pelo nome do arquivo / coluna Área)'],...ESTRUTURA.map(x=>[x.nome,x.nome])])}</label></div>
+    <fieldset><legend>Indicador CMR · meia-lua</legend>
+      <div class="frow"><label>Aba ${sel('cmr.aba',abasOpt)}</label><label>Linha do cabeçalho <input type="number" min="1" data-k="cmr.hdr" value="${c.cmr.hdr||1}"></label><label>Coluna Mês ${sel('cmr.colMes',cOpt)}</label>
+        <label>Formato da tabela ${sel('cmr.modo',[['tabela','Uma tabela só'],['blocos','Blocos repetidos (um por derivação)']])}</label></div>
+      <div class="frow">${alvos.map(([k,l])=>`<label>${esc(l)} ${sel('cmr.alvos.'+k,cOpt)}</label>`).join('')}
+        <label>Meta CMR (%) <input type="number" step="0.1" data-k="cmr.meta" value="${c.cmr.meta??''}" placeholder="ex.: 10" style="width:100px;min-width:100px"></label>
+        <label>Sentido ${sel('cmr.sentido',[['maior','Maior é melhor'],['menor','Menor é melhor']])}</label></div>
+      ${resumoBlocos}
+      ${(()=>{ if(!c.cmr.aba) return ''; let t; try{ t=lerComConfig(wb,cfgNome,c); }catch(e){ return `<p class="hint" style="color:var(--bad)">Erro na leitura: ${esc(e.message)}</p>`; }
+        if(!t.cmr.length) return `<p class="hint" style="color:var(--bad);font-size:13px">⚠ Nenhum valor de CMR lido com esta configuração. Confira a Coluna Mês (os meses precisam estar nessa coluna) e a coluna do CMR.</p>`;
+        const m=new Map(); t.cmr.forEach(x=>{ const k=x.extra||x.sub||'geral'; if(!m.has(k)) m.set(k,[]); m.get(k).push(x); });
+        return `<p class="hint" style="font-size:13px;color:var(--ink)">✔ <b>Leitura:</b> área <b>${esc(t.cmr[0].grupo)}</b> · `+[...m].map(([k,arr])=>{ const ult=arr.slice().sort((a,b)=>a.mes<b.mes?1:-1)[0];
+          return `${esc(k)}: ${new Set(arr.map(x=>x.mes)).size} mês(es), último ${mesLabel(ult.mes)} = <b>${fmt(ult.v*100,2)}%</b>`; }).join(' · ')+`</p>`; })()}
+      ${preview('cmr',c.cmr.aba,c.cmr.hdr,marcC)}
+    </fieldset>
+    ${fsPar('par','Paradas · banco de paradas e Pareto')}
+    ${G&&G.subs? fsPar('par2','Paradas por derivação (opcional) · só para os cards de '+G.subs.map(S=>S.nome).slice(0,2).join(', ')+'…') : ''}
+    <div class="mact"><button class="light" id="cfgAuto" style="margin-right:auto">Voltar ao automático</button><button class="light" id="cfgCancel">Cancelar</button><button id="cfgSave">Salvar e aplicar</button></div>`;
+}
+$('#cfgBox').addEventListener('change',e=>{
+  const k=e.target.dataset.k; if(!k) return; let v=e.target.value;
+  if (/\.hdr$/.test(k)) v=Math.max(1,parseInt(v)||1);
+  else if (/\.meta$/.test(k)) v = v===''? '' : parseFloat(String(v).replace(',','.'));
+  else if (/cols\.|alvos\.|colMes$|colGeral$/.test(k)) v = v===''? '' : +v;
+  setPath(cfgEd,k,v);
+  if (k==='grupo'){ const G=ESTRUTURA.find(x=>x.nome===v); const al=cfgEd.cmr.alvos||{}; cfgEd.cmr.alvos={_geral:al._geral??''}; ((G&&G.subs)||[]).forEach(S=>{ if(al[S.nome]!=null) cfgEd.cmr.alvos[S.nome]=al[S.nome]; }); }
+  desenharCfg();
+});
+$('#cfgBox').addEventListener('click',async e=>{
+  const t=e.target;
+  if (t.dataset.hdr){ setPath(cfgEd,t.dataset.hdr+'.hdr',+t.dataset.r); desenharCfg(); return; }
+  if (t.id==='cfgCancel'){ $('#cfgModal').classList.remove('open'); return; }
+  if (t.id==='cfgSave' || t.id==='cfgAuto'){
+    if (t.id==='cfgSave') CONFIG[cfgNome]=cfgEd; else delete CONFIG[cfgNome];
+    salvarCfg(); aplicarConfig(cfgNome); $('#cfgModal').classList.remove('open');
+  }
+});
+function aplicarConfig(nome){
+  const wb=wbCache.get(nome), i=fontes.findIndex(f=>f.nome===nome); if(!wb||i<0) return;
+  const novo=lerWorkbook(wb,nome); novo.origem=fontes[i].origem; novo.data=fontes[i].data; fontes[i]=novo;
+  // reconfigurar não deve marcar tudo como "NOVA"
+  if (vistas){ todasLinhas().forEach(l=>vistas.add(chaveParada(l))); try{ localStorage.setItem('dashCMR_vistas', JSON.stringify([...vistas])); }catch(e){} }
+  salvar(); preencherFiltros(); render();
+}
+
+/* ---------- modelo ---------- */
+$('#btnModelo').onclick=()=>{
+  const ws=XLSX.utils.aoa_to_sheet([
+    ['Data','Área','Planta','Máquina','Tempo Parado (min)','Classificação','Motivo','Início','Fim'],
+    [new Date(),'Premix','CMR 01','Misturador',45,'Corretiva','Falha mecânica','',''],
+    [new Date(),'Premix','CMR 01','Ensacadeira','','Operacional','Falha elétrica','18/11/2026 08:10','18/11/2026 09:00']
+  ]);
+  ws['!cols']=[{wch:12},{wch:14},{wch:10},{wch:22},{wch:18},{wch:16},{wch:20},{wch:18},{wch:18}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Paradas'); XLSX.writeFile(wb,'Modelo_Paradas_CMR.xlsx');
+};
+
+/* ---------- abas ---------- */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id===b.dataset.tab));
+});
+
+/* ================= INÍCIO ================= */
+(async()=>{
+  if (typeof XLSX==='undefined'){ document.body.insertAdjacentHTML('afterbegin','<div style="background:#d64545;color:#fff;padding:8px 24px">Não foi possível carregar a biblioteca de leitura de Excel (sem internet?). Os gráficos funcionam, mas a leitura de .xlsx precisa de acesso a cdn.jsdelivr.net.</div>'); }
+  if (!carregar()) demo();
+  preencherFiltros(); render();
+  const hs=await idbGet('arqs');
+  if (Array.isArray(hs) && hs.length){ arqHandles=hs; await lerConectadas(true); }
+  // relê as planilhas selecionadas a cada 15 min (enquanto a página estiver aberta)
+  setInterval(()=>{ if(arqHandles.length) lerConectadas(true); }, 15*60*1000);
+})();
+</script>
+</body>
+</html>
