@@ -273,6 +273,12 @@
     </div>
     <div class="drop" id="drop">Arraste aqui as planilhas de cada área (.xlsx, .xls, .csv) — mas para atualizar sozinho a cada 15 min use <b>📄 Selecionar planilhas</b> (Chrome/Edge).</div>
     <div class="card">
+      <h2>Conferência do CMR <span id="confMes"></span></h2>
+      <p class="hint" style="font-size:13px">Compare cada valor com a célula indicada na planilha. Se não bater, use <b>Restaurar configurações prontas</b> e depois ⟳ Atualizar.</p>
+      <div class="tblbox" id="conferencia" style="max-height:none;margin-bottom:10px"></div>
+      <p><button class="light" id="btnRestaurar">↺ Restaurar configurações prontas (apaga os ⚙ salvos)</button></p>
+    </div>
+    <div class="card" style="margin-top:14px">
       <h2>Planilhas carregadas</h2>
       <div id="fontes"></div>
     </div>
@@ -469,7 +475,7 @@ const PRESETS = [
     par:{ aba:'Banco_Paradas', unid:'h', cols:{ data:'data inicio', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
           planta:'forberg', maquina:'falha 1', duracao:'duracao2', classif:'classificacao', tipo:'efeito', motivo:'falha 2' } } },
   { id:'fosfato', match:['dcp','fosfato'], grupo:'Fosfato',
-    cmr:{ aba:'Performance Mensal', mes:'mes', cmr:'cmr', sentido:'menor', extras:{ 'CMR reatores':'cmr reatores' } },
+    cmr:{ aba:'Performance Mensal', mes:'mes', cmr:'cmr', sentido:'menor', extras:{ 'CMR reatores':'cmr reatores' }, hprog:'horas programadas' },
     // obs.: a coluna "DURAÇÃO (MIN)" desta planilha está em HORAS (1h10 = 1,17)
     par:{ aba:'Paradas - Geral', unid:'h', cols:{ data:'data', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
           maquina:'falha nivel 1', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que', tipo:'efeito' } },
@@ -494,6 +500,7 @@ function presetPara(wb, nome){
         cfg.cmr={aba,hdr:hi+1,colMes:acharCol(H,P.cmr.mes),alvos:{_geral:acharCol(H,P.cmr.cmr)},modo:P.cmr.modo||'tabela',meta:P.cmr.meta??'',sentido:P.cmr.sentido||'menor'};
         if (P.cmr.colGeral) cfg.cmr.colGeral=letraIdx(P.cmr.colGeral);
         if (P.cmr.subs) for (const [sb,nm] of Object.entries(P.cmr.subs)){ const j=acharCol(H,nm); if(j>=0) cfg.cmr.alvos[sb]=j; }
+        if (P.cmr.hprog){ const j=acharCol(H,P.cmr.hprog); if(j>=0) cfg.cmr.colHprog=j; }
         if (P.cmr.extras){ cfg.cmr.extras={}; for (const [k,v] of Object.entries(P.cmr.extras)){ const j=acharCol(H,v); if(j>=0) cfg.cmr.extras[k]=j; } }
       } } }
   for (const key of ['par','par2']){ const Q=P[key]; if(!Q) continue; const aba=acharAba(wb,Q.aba); if(!aba) continue;
@@ -513,6 +520,7 @@ function lerWorkbook(wb, nomeArq){
       if (pre.cmrDeriv && !cfg.cmrDeriv) cfg.cmrDeriv=pre.cmrDeriv;
       if (pre.par2 && (!cfg.par2 || !cfg.par2.aba || (cfg.cmrDeriv && (cfg.par2.cols||{}).tipo==null))) cfg.par2=pre.par2;
       if (pre.cmr && pre.cmr.extras && cfg.cmr && !cfg.cmr.extras && cfg.cmr.aba===pre.cmr.aba) cfg.cmr.extras=pre.cmr.extras;
+      if (pre.cmr && pre.cmr.colHprog!=null && cfg.cmr && cfg.cmr.colHprog==null && cfg.cmr.aba===pre.cmr.aba) cfg.cmr.colHprog=pre.cmr.colHprog;
       if (!cfg.grupo) cfg.grupo=pre.grupo;
     }
     return lerComConfig(wb, nomeArq, cfg);
@@ -554,7 +562,7 @@ function blocosCMR(aoa, colMes, colCmr, nomeCmr, G){
 }
 function lerComConfig(wb, nome, cfg){
   const areaArq=nome.replace(/\.[^.]+$/,''); const ano=+((nome.match(/20\d\d/)||[new Date().getFullYear()])[0]);
-  let linhas=[], colunas={}, cmr=[], linhasDeriv=[];
+  let linhas=[], colunas={}, cmr=[], linhasDeriv=[]; const hprog={};
   const lerPar=(P,cols)=>{
     if (!(P && P.aba && wb.Sheets[P.aba])) return [];
     const aoa=aoaDe(wb,P.aba), hi=Math.max(0,(P.hdr||1)-1), map={_horas:P.unid==='h'};
@@ -588,7 +596,7 @@ function lerComConfig(wb, nome, cfg){
         if (comecou && !row.some(v=>v!=null&&String(v).trim()!=='')) break;   // linha vazia = fim do bloco
         const mes=parseMes(row[b.j],ano); if(!mes) continue; comecou=true;
         const v=parsePct(row[b.c]); if(v==null) continue;
-        cmr.push({grupo:grupoCmr, sub:b.sub, mes, v, meta, sentido}); }
+        cmr.push({grupo:grupoCmr, sub:b.sub, mes, v, meta, sentido, ref:`${C.aba}!${colLetra(b.c)}${r+1}`}); }
     }
   } else if (C && C.aba && wb.Sheets[C.aba] && C.colMes!==''&&C.colMes!=null){
     const aoa=aoaDe(wb,C.aba);
@@ -597,12 +605,15 @@ function lerComConfig(wb, nome, cfg){
       const row=aoa[r]||[];
       if (comecou && !row.some(v=>v!=null&&String(v).trim()!=='')) break;   // linha vazia = fim da tabela
       const mes=parseMes(row[+C.colMes],ano); if(!mes) continue; comecou=true;
+      if (C.colHprog!=null){ const h=+row[+C.colHprog]; if(!isNaN(h)) hprog[mes]=h; }
       for (const [alvo,col] of Object.entries(C.alvos||{})){
-        if (col===''||col==null) continue; const v=parsePct(row[+col]); if(v==null) continue;
-        cmr.push({grupo:grupoCmr, sub:alvo==='_geral'?null:alvo, mes, v, meta, sentido});
+        if (col===''||col==null) continue;
+        if (alvo!=='_geral' && cfg.cmrDeriv) continue;   // derivações (ex.: reatores) vêm do cálculo por reator, não de uma coluna
+        const v=parsePct(row[+col]); if(v==null) continue;
+        cmr.push({grupo:grupoCmr, sub:alvo==='_geral'?null:alvo, mes, v, meta, sentido, ref:`${C.aba}!${colLetra(+col)}${r+1}`});
       }
       for (const [nomeX,col] of Object.entries(C.extras||{})){   // indicadores extras da mesma tabela (ex.: CMR reatores)
-        const v=parsePct(row[+col]); if(v!=null) cmr.push({grupo:grupoCmr, sub:null, extra:nomeX, mes, v});
+        const v=parsePct(row[+col]); if(v!=null) cmr.push({grupo:grupoCmr, sub:null, extra:nomeX, mes, v, ref:`${C.aba}!${colLetra(+col)}${r+1}`});
       }
     }
   }
@@ -616,10 +627,14 @@ function lerComConfig(wb, nome, cfg){
       classificarPlanta(l); if(!l._s) return;
       const m=`${l.data.getFullYear()}-${String(l.data.getMonth()+1).padStart(2,'0')}`;
       (porMes[m]=porMes[m]||{})[l._s]=(porMes[m][l._s]||0)+l.min/60; });
+    // se a tabela estiver ACUMULADA (horas programadas > 800 num "mês"), soma as paradas de janeiro até o mês
+    const acumulada = Object.values(hprog).some(h=>h>800);
+    const janela = mes => { if(!acumulada) return porMes[mes]||{}; const [y,m]=mes.split('-').map(Number), out={};
+      for (let i=1;i<=m;i++){ const k=`${y}-${String(i).padStart(2,'0')}`; for (const [sb,h] of Object.entries(porMes[k]||{})) out[sb]=(out[sb]||0)+h; } return out; };
     cmr.filter(c=>c.extra===D.base).forEach(c=>{
-      const nums=porMes[c.mes]||{}, tot=Object.values(nums).reduce((a,b)=>a+b,0);
-      const horasUnid = (tot>0 && c.v>0)? tot/c.v/D.n : null;   // = dias × 24
-      ((G&&G.subs)||[]).forEach(S=>{ const v = c.v===0? 0 : horasUnid? (nums[S.nome]||0)/horasUnid : null;
+      const nums=janela(c.mes), tot=Object.values(nums).reduce((a,b)=>a+b,0);
+      // CMR do reator = CMR reatores × nº de reatores × (horas do reator ÷ horas de todos) → a média dos 8 bate com a planilha
+      ((G&&G.subs)||[]).forEach(S=>{ const v = c.v===0? 0 : tot>0? c.v*D.n*(nums[S.nome]||0)/tot : null;
         if (v!=null) cmr.push({grupo:grupoCmr, sub:S.nome, mes:c.mes, v, meta, sentido, calc:true}); });
     });
   }
@@ -1079,7 +1094,11 @@ function renderSaude(){
   // indicador "ao vivo" no topo
   const dot=$('#liveDot'), txt=$('#liveTxt');
   if (isDemo){ dot.className='dot warn'; txt.textContent='DADOS DE EXEMPLO'; }
-  else if (fontes.length && fontes.every(f=>f.origem==='firebase')){ dot.className='dot on'; txt.textContent='AO VIVO · PAINEL COMPARTILHADO'+(fbInfo&&fbInfo.em?' · '+new Date(fbInfo.em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):''); }
+  else if (fontes.length && fontes.every(f=>f.origem==='firebase')){
+    const em=fbInfo&&fbInfo.em? new Date(fbInfo.em) : null, velho = !em || (Date.now()-em)>40*60*1000;
+    const quando = em? em.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '?';
+    dot.className = velho? 'dot warn' : 'dot on';
+    txt.textContent = velho? 'DADOS DE '+quando+' · AGUARDANDO ATUALIZAÇÃO' : 'AO VIVO · ATUALIZADO '+quando; }
   else if (typeof arqHandles!=='undefined' && arqHandles.length){ dot.className='dot on'; txt.textContent='AO VIVO · ATUALIZA A CADA 15 MIN'; }
   else { dot.className='dot warn'; txt.textContent='PLANILHAS CARREGADAS'; }
 }
@@ -1197,10 +1216,23 @@ function renderPareto(L){
 document.querySelectorAll('#segMetric button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#segMetric button').forEach(x=>x.classList.remove('on'));b.classList.add('on');metric=b.dataset.m;render();});
 $('#topN').onchange=render;
 
+function renderConferencia(){
+  const mes=$('#fMes').value||mesAtual(); $('#confMes').textContent='· '+mesLabel(mes);
+  const linhas=[];
+  fontes.forEach(f=>(f.cmr||[]).filter(c=>c.mes===mes).forEach(c=>linhas.push({f, c})));
+  linhas.sort((a,b)=>(a.c.grupo+(a.c.extra?'1':a.c.sub?'2'+a.c.sub:'0')).localeCompare(b.c.grupo+(b.c.extra?'1':b.c.sub?'2'+b.c.sub:'0')));
+  $('#conferencia').innerHTML = linhas.length? `<table><tr><th>Área</th><th>Indicador</th><th class="n">Valor lido</th><th>De onde veio</th><th>Arquivo</th></tr>`+
+    linhas.map(({f,c})=>`<tr><td><b>${esc(c.grupo)}</b></td><td>${c.extra?esc(c.extra):c.sub?'CMR '+esc(c.sub):'CMR geral'}</td><td class="n"><b>${fmt(c.v*100,2)}%</b></td>
+      <td>${c.calc?'calculado por reator (rateio do CMR reatores)':c.ref?'<code>'+esc(c.ref)+'</code>':'—'}</td><td style="font-size:12px;color:var(--muted)">${esc(f.nome)}</td></tr>`).join('')+'</table>'
+    : `<div class="empty">Nenhum CMR lido para ${mesLabel(mes)}. Clique em ⟳ Atualizar.</div>`;
+}
+$('#btnRestaurar').onclick=()=>{ if(!confirm('Apagar todas as configurações salvas no ⚙ e usar as prontas?')) return;
+  CONFIG={}; salvarCfg(); if(arqHandles.length) lerConectadas(false); else alert('Configurações apagadas. Clique em ⟳ Atualizar.'); };
 function renderFontes(){
+  renderConferencia();
   const campos=['data','area','planta','maquina','duracao','classif','motivo'];
   $('#fontes').innerHTML = fontes.length? `<table><tr><th>Arquivo</th><th>Origem</th><th class="n">Paradas</th><th class="n">Meses CMR</th><th>Colunas usadas</th><th></th></tr>
-    ${fontes.map((f,i)=>`<tr><td><b>${esc(f.nome)}</b><br><small style="color:var(--muted)">${f.preset?'✔ configuração pronta · área '+esc(f.area):f.manual?'⚙ configurada manualmente · área '+esc(f.area):'leitura automática'}${(f.linhasDeriv||[]).length?' · '+fmtInt(f.linhasDeriv.length)+' paradas por derivação':''}</small></td><td>${esc(f.origem)}</td>
+    ${fontes.map((f,i)=>`<tr><td><b>${esc(f.nome)}</b><br><small style="color:var(--muted)">${f.preset?'✔ configuração pronta · área '+esc(f.area):f.manual?'⚙ configurada manualmente · área '+esc(f.area):'leitura automática'}${(f.linhasDeriv||[]).length?' · '+fmtInt(f.linhasDeriv.length)+' paradas por derivação':''}${f.data&&f.origem==='conectada'?'<br>📄 arquivo salvo em <b>'+new Date(f.data).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</b>':''}</small></td><td>${esc(f.origem)}</td>
       <td class="n">${fmtInt(f.linhas.length)}</td><td class="n">${new Set((f.cmr||[]).map(c=>c.mes)).size||'—'}${(()=>{ const m=new Map(); (f.cmr||[]).forEach(c=>{const k=c.sub||'geral'; m.set(k,(m.get(k)||0)+1);}); return m.size>1?'<br><small style="color:var(--muted)">'+[...m].map(([k,n])=>esc(k)+': '+n).join(' · ')+'</small>':''; })()}</td>
       <td>${campos.map(c=>f.colunas[c]?`<span class="pill" title="${esc(f.colunas[c])}">${c}</span>`:`<span class="pill miss">${c}</span>`).join('')}</td>
       <td style="white-space:nowrap"><button data-cfg="${i}">⚙ Configurar</button> <button class="light" data-rm="${i}">Remover</button></td></tr>`).join('')}</table>
