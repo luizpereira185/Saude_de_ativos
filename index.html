@@ -481,6 +481,7 @@ const PRESETS = [
           maquina:'falha nivel 1', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que', tipo:'efeito' } },
     par2:{ aba:'Paradas - Reatores', unid:'h', cols:{ data:'data', inicio:'hora inicio', fim:'hora fim', datafim:'data fim',
           planta:'reator', maquina:'equipamento', duracao:'duracao (min)', classif:'classificacao', motivo:'1 por que', tipo:'efeito' } },
+    // CMR de cada reator no mês: rateio do "CMR reatores" (coluna O) pelas horas de manutenção não programada de cada reator
     cmrDeriv:{ base:'CMR reatores', classes:['MANUTENÇÃO MECÂNICA','MANUTENÇÃO ELÉTRICA'], tipo:'PARADA NÃO PROGRAMADA', n:8 } }
 ];
 const letraIdx = L => [...String(L).toUpperCase()].reduce((n,ch)=>n*26+(ch.charCodeAt(0)-64),0)-1;
@@ -493,7 +494,7 @@ function presetPara(wb, nome){
   const base=chave(nome.replace(/\.[^.]+$/,''));
   const casa=m=>{ const t=chave(m); return t.length<=3 ? (' '+base+' ').includes(' '+t+' ') : base.includes(t); };
   const P=PRESETS.find(p=>p.match.some(casa)); if(!P) return null;
-  const cfg={grupo:P.grupo, _preset:P.id}; if (P.cmrDeriv) cfg.cmrDeriv=P.cmrDeriv;
+  const cfg={grupo:P.grupo, _preset:P.id}; if (P.cmrDeriv) cfg.cmrDeriv=P.cmrDeriv; if (P.derivIgual) cfg.derivIgual=P.derivIgual; if (P.derivPorLinha) cfg.derivPorLinha=P.derivPorLinha;
   if (P.cmr){ const aba=acharAba(wb,P.cmr.aba);
     if (aba){ const aoa=aoaDe(wb,aba), hi=acharHdr(aoa,[P.cmr.mes,P.cmr.cmr]);
       if (hi>=0){ const H=aoa[hi];
@@ -517,7 +518,9 @@ function lerWorkbook(wb, nomeArq){
     // (ex.: CMR por reator e paradas por reator, que vieram depois)
     const cfg=JSON.parse(JSON.stringify(CONFIG[nomeArq]));
     if (pre){
-      if (pre.cmrDeriv && !cfg.cmrDeriv) cfg.cmrDeriv=pre.cmrDeriv;
+      if (pre.cmrDeriv){ cfg.cmrDeriv=pre.cmrDeriv; delete cfg.derivIgual; delete cfg.derivPorLinha; }
+      if (pre.derivIgual){ cfg.derivIgual=pre.derivIgual; delete cfg.cmrDeriv; }
+      if (pre.derivPorLinha){ cfg.derivPorLinha=pre.derivPorLinha; delete cfg.cmrDeriv; delete cfg.derivIgual; if (cfg.cmr) delete cfg.cmr.extras; }
       if (pre.par2 && (!cfg.par2 || !cfg.par2.aba || (cfg.cmrDeriv && (cfg.par2.cols||{}).tipo==null))) cfg.par2=pre.par2;
       if (pre.cmr && pre.cmr.extras && cfg.cmr && !cfg.cmr.extras && cfg.cmr.aba===pre.cmr.aba) cfg.cmr.extras=pre.cmr.extras;
       if (pre.cmr && pre.cmr.colHprog!=null && cfg.cmr && cfg.cmr.colHprog==null && cfg.cmr.aba===pre.cmr.aba) cfg.cmr.colHprog=pre.cmr.colHprog;
@@ -608,7 +611,7 @@ function lerComConfig(wb, nome, cfg){
       if (C.colHprog!=null){ const h=+row[+C.colHprog]; if(!isNaN(h)) hprog[mes]=h; }
       for (const [alvo,col] of Object.entries(C.alvos||{})){
         if (col===''||col==null) continue;
-        if (alvo!=='_geral' && cfg.cmrDeriv) continue;   // derivações (ex.: reatores) vêm do cálculo por reator, não de uma coluna
+        if (alvo!=='_geral' && (cfg.cmrDeriv || cfg.derivIgual || cfg.derivPorLinha)) continue;   // derivações (ex.: reatores) vêm do cálculo por reator, não de uma coluna
         const v=parsePct(row[+col]); if(v==null) continue;
         cmr.push({grupo:grupoCmr, sub:alvo==='_geral'?null:alvo, mes, v, meta, sentido, ref:`${C.aba}!${colLetra(+col)}${r+1}`});
       }
@@ -619,7 +622,22 @@ function lerComConfig(wb, nome, cfg){
   }
   // CMR por derivação calculado com a mesma regra da planilha (ex.: CMR de cada reator):
   // horas de manutenção não programada do reator ÷ (dias × 24). Os dias saem do próprio "CMR reatores" da planilha.
-  const D=cfg.cmrDeriv;
+  if (cfg.derivPorLinha && C && C.aba && wb.Sheets[C.aba] && C.colMes!==''&&C.colMes!=null){
+    // a coluna indicada traz uma derivação por linha: MÊS = 1 → 1ª derivação (Reator 1), 2 → Reator 2 …
+    const aoa=aoaDe(wb,C.aba), hi=Math.max(0,(C.hdr||1)-1), col=acharCol(aoa[hi],cfg.derivPorLinha.col), G=ESTRUTURA.find(x=>x.nome===grupoCmr);
+    const subs=(G&&G.subs)||[];
+    const ultimo = cmr.filter(c=>!c.sub&&!c.extra&&c.v!=null).map(c=>c.mes).sort().pop() || mesAtual();
+    if (col>=0) for (let r=hi+1; r<aoa.length; r++){ const row=aoa[r]||[], n=+row[+C.colMes];
+      if (!Number.isInteger(n) || n<1 || n>subs.length) continue;
+      const v=parsePct(row[col]); if(v==null) continue;
+      cmr.push({grupo:grupoCmr, sub:subs[n-1].nome, mes:ultimo, v, meta, sentido, ref:`${C.aba}!${colLetra(col)}${r+1}`}); }
+  }
+  if (cfg.derivIgual){   // todas as derivações recebem o mesmo indicador da tabela (ex.: CMR reatores)
+    const G=ESTRUTURA.find(x=>x.nome===grupoCmr);
+    cmr.filter(c=>c.extra===cfg.derivIgual.base).forEach(c=>((G&&G.subs)||[]).forEach(S=>
+      cmr.push({grupo:grupoCmr, sub:S.nome, mes:c.mes, v:c.v, meta, sentido, ref:c.ref})));
+  }
+  const D=(cfg.derivIgual||cfg.derivPorLinha)? null : cfg.cmrDeriv;
   if (D && linhasDeriv.length){
     const G=ESTRUTURA.find(x=>x.nome===grupoCmr), cls=D.classes.map(norm), tp=norm(D.tipo||'');
     const porMes={};
@@ -643,7 +661,7 @@ function lerComConfig(wb, nome, cfg){
 async function lerArquivo(file, origem){
   const buf = await file.arrayBuffer();
   const wb = abrirWb(buf);
-  const f = lerWorkbook(wb, file.name); f.origem=origem; f.data=new Date(file.lastModified);
+  const f = lerWorkbook(wb, file.name); f.origem=origem; f.data=new Date(file.lastModified); f.lidoEm=Date.now();
   return f;
 }
 async function adicionarArquivos(files, origem='arquivo'){
@@ -1223,7 +1241,8 @@ function renderConferencia(){
   linhas.sort((a,b)=>(a.c.grupo+(a.c.extra?'1':a.c.sub?'2'+a.c.sub:'0')).localeCompare(b.c.grupo+(b.c.extra?'1':b.c.sub?'2'+b.c.sub:'0')));
   $('#conferencia').innerHTML = linhas.length? `<table><tr><th>Área</th><th>Indicador</th><th class="n">Valor lido</th><th>De onde veio</th><th>Arquivo</th></tr>`+
     linhas.map(({f,c})=>`<tr><td><b>${esc(c.grupo)}</b></td><td>${c.extra?esc(c.extra):c.sub?'CMR '+esc(c.sub):'CMR geral'}</td><td class="n"><b>${fmt(c.v*100,2)}%</b></td>
-      <td>${c.calc?'calculado por reator (rateio do CMR reatores)':c.ref?'<code>'+esc(c.ref)+'</code>':'—'}</td><td style="font-size:12px;color:var(--muted)">${esc(f.nome)}</td></tr>`).join('')+'</table>'
+      <td>${c.calc?'calculado por reator (rateio do CMR reatores)':c.ref?'<code>'+esc(c.ref)+'</code>':'<span style="color:var(--bad);font-weight:600">⚠ planilha NÃO foi relida — valor antigo</span>'}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(f.nome)}<br>${f.lidoEm?'lida '+new Date(f.lidoEm).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'<span style="color:var(--bad)">sem leitura recente</span>'}${f.data?' · arquivo salvo '+new Date(f.data).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</td></tr>`).join('')+'</table>'
     : `<div class="empty">Nenhum CMR lido para ${mesLabel(mes)}. Clique em ⟳ Atualizar.</div>`;
 }
 $('#btnRestaurar').onclick=()=>{ if(!confirm('Apagar todas as configurações salvas no ⚙ e usar as prontas?')) return;
